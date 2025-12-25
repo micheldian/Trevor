@@ -3,17 +3,21 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  ConflictException,
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Match, MatchStatus } from './entities/match.entity';
-import { Job } from '../jobs/entities/job.entity';
+import { Job, JobStatus } from '../jobs/entities/job.entity';
 import { Profile } from '../profiles/entities/profile.entity';
 import { ProfileType } from '../profiles/entities/profile.entity';
+import { Availability } from '../availability/entities/availability.entity';
 import { CreateMatchDto } from './dto/create-match.dto';
 import { UpdateMatchStatusDto } from './dto/update-match-status.dto';
+import { ConfirmMatchDto } from './dto/confirm-match.dto';
 import { CreateMatchResponse } from './interfaces/match-response.interface';
+import { ConfirmMatchResponse } from './interfaces/confirm-match-response.interface';
 
 @Injectable()
 export class MatchesService {
@@ -26,6 +30,9 @@ export class MatchesService {
     private readonly jobRepository: Repository<Job>,
     @InjectRepository(Profile)
     private readonly profileRepository: Repository<Profile>,
+    @InjectRepository(Availability)
+    private readonly availabilityRepository: Repository<Availability>,
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -281,6 +288,130 @@ export class MatchesService {
     );
 
     return this.matchRepository.save(match);
+  }
+
+  /**
+   * Confirmer un match (TRANSACTION)
+   * - Match passe à confirmed
+   * - Job passe à confirmed
+   * - Availability du candidat est bloquée (anti double-booking)
+   */
+  async confirmMatch(
+    userId: string,
+    matchId: string,
+    dto: ConfirmMatchDto,
+  ): Promise<ConfirmMatchResponse> {
+    // Créer une transaction
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // 1. Récupérer le match avec ses relations
+      const match = await queryRunner.manager.findOne(Match, {
+        where: { id: matchId, isActive: true },
+        relations: ['job', 'job.employer', 'candidate', 'candidate.user'],
+      });
+
+      if (!match) {
+        throw new NotFoundException('Match non trouvé');
+      }
+
+      // 2. Vérifier que l'utilisateur est l'employeur
+      const employerProfile = await queryRunner.manager.findOne(Profile, {
+        where: { id: match.job.employerId },
+      });
+
+      if (!employerProfile || employerProfile.userId !== userId) {
+        throw new ForbiddenException(
+          'Seul l\'employeur peut confirmer un match',
+        );
+      }
+
+      // 3. Vérifier que le match n'est pas déjà confirmé
+      if (match.status === MatchStatus.CONFIRMED) {
+        throw new BadRequestException('Ce match est déjà confirmé');
+      }
+
+      // 4. Vérifier que le job peut passer à confirmed
+      const job = match.job;
+      const allowedJobStatuses = [
+        JobStatus.PUBLISHED,
+        JobStatus.IN_CONTACT,
+      ];
+
+      if (!allowedJobStatuses.includes(job.status)) {
+        throw new BadRequestException(
+          `Le job doit être en statut 'published' ou 'in_contact' pour être confirmé. Statut actuel: ${job.status}`,
+        );
+      }
+
+      // 5. Trouver l'availability correspondante du candidat
+      // On cherche une availability qui correspond au créneau du job
+      const availability = await queryRunner.manager.findOne(Availability, {
+        where: {
+          profileId: match.candidateId,
+          dateType: job.dateType as any, // Convertir JobDateType vers DateType
+          timeSlot: job.timeSlot as any, // Convertir JobTimeSlot vers TimeSlot
+          isActive: true,
+        },
+        relations: ['profile'],
+      });
+
+      if (!availability) {
+        throw new BadRequestException(
+          `Aucune disponibilité trouvée pour le candidat sur le créneau ${job.dateType} ${job.timeSlot}`,
+        );
+      }
+
+      // 6. Vérifier que l'availability n'est pas déjà bookée (anti double-booking)
+      if (availability.bookedByMatchId) {
+        throw new ConflictException(
+          `Cette disponibilité est déjà réservée par un autre match (${availability.bookedByMatchId})`,
+        );
+      }
+
+      // 7. Mettre à jour le match
+      match.status = MatchStatus.CONFIRMED;
+      match.confirmedAt = new Date();
+      if (dto.notes) {
+        match.employerNotes = dto.notes;
+      }
+
+      // 8. Mettre à jour le job
+      job.status = JobStatus.CONFIRMED;
+      job.confirmedAt = new Date();
+
+      // 9. Bloquer l'availability
+      availability.bookedByMatchId = match.id;
+      availability.bookedAt = new Date();
+
+      // Sauvegarder tout dans la transaction
+      await queryRunner.manager.save(Match, match);
+      await queryRunner.manager.save(Job, job);
+      await queryRunner.manager.save(Availability, availability);
+
+      // Commit de la transaction
+      await queryRunner.commitTransaction();
+
+      this.logger.log(
+        `Match ${matchId} confirmé: job ${job.id} → confirmed, availability ${availability.id} → bloquée`,
+      );
+
+      return {
+        match,
+        job,
+        blockedAvailability: availability,
+        message: 'Match confirmé avec succès. Le job et la disponibilité ont été mis à jour.',
+      };
+    } catch (error) {
+      // Rollback en cas d'erreur
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      // Libérer le queryRunner
+      await queryRunner.release();
+    }
   }
 
   /**

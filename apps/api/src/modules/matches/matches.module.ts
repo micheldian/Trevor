@@ -5,9 +5,10 @@ import { MatchesService } from './matches.service';
 import { Match } from './entities/match.entity';
 import { Job } from '../jobs/entities/job.entity';
 import { Profile } from '../profiles/entities/profile.entity';
+import { Availability } from '../availability/entities/availability.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Match, Job, Profile])],
+  imports: [TypeOrmModule.forFeature([Match, Job, Profile, Availability])],
   controllers: [MatchesController],
   providers: [MatchesService],
   exports: [MatchesService],

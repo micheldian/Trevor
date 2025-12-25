@@ -19,6 +19,7 @@ import {
 import { MatchesService } from './matches.service';
 import { CreateMatchDto } from './dto/create-match.dto';
 import { UpdateMatchStatusDto } from './dto/update-match-status.dto';
+import { ConfirmMatchDto } from './dto/confirm-match.dto';
 import { Match, MatchStatus } from './entities/match.entity';
 import { CreateMatchResponse } from './interfaces/match-response.interface';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -181,5 +182,59 @@ export class MatchesController {
     @Body() dto: UpdateMatchStatusDto,
   ): Promise<Match> {
     return this.matchesService.updateStatus(req.user.userId, id, dto);
+  }
+
+  @Post(':id/confirm')
+  @ApiOperation({
+    summary: 'Confirmer un match (TRANSACTION)',
+    description: `
+      Confirme un match et effectue les actions suivantes en une seule transaction:
+      1. Match → status confirmed
+      2. Job → status confirmed
+      3. Availability du candidat → bloquée (anti double-booking)
+
+      Seul l'employeur peut confirmer un match.
+      Le job doit être en statut 'published' ou 'in_contact'.
+      La disponibilité doit exister et ne pas être déjà réservée.
+    `,
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Match confirmé avec succès (transaction commit)',
+    schema: {
+      example: {
+        match: { id: '...', status: 'confirmed', confirmedAt: '...' },
+        job: { id: '...', status: 'confirmed', confirmedAt: '...' },
+        blockedAvailability: {
+          id: '...',
+          bookedByMatchId: 'match-id',
+          bookedAt: '...',
+        },
+        message: 'Match confirmé avec succès...',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Match déjà confirmé, job invalide, ou disponibilité manquante',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Seul l\'employeur peut confirmer',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Match non trouvé',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflit: disponibilité déjà réservée (double booking)',
+  })
+  async confirmMatch(
+    @Request() req,
+    @Param('id') id: string,
+    @Body() dto: ConfirmMatchDto,
+  ) {
+    return this.matchesService.confirmMatch(req.user.userId, id, dto);
   }
 }

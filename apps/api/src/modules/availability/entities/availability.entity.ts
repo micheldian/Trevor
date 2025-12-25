@@ -75,6 +75,13 @@ export class Availability {
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 
+  // Booking (anti double-booking)
+  @Column({ name: 'booked_by_match_id', type: 'uuid', nullable: true })
+  bookedByMatchId?: string;
+
+  @Column({ name: 'booked_at', type: 'timestamp', nullable: true })
+  bookedAt?: Date;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
