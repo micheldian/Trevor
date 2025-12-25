@@ -79,6 +79,17 @@ export class Profile {
   @Column({ name: 'is_complete', default: false })
   isComplete: boolean;
 
+  // Véhicule
+  @Column({ name: 'has_vehicle', default: false })
+  hasVehicle: boolean;
+
+  // Localisation par défaut
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  latitude?: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  longitude?: number;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

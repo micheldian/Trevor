@@ -6,6 +6,7 @@ import { RedisModule } from '@liaoliaots/nestjs-redis';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from './modules/auth/auth.module';
 import { AvailabilityModule } from './modules/availability/availability.module';
+import { SearchModule } from './modules/search/search.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 
 @Module({
@@ -63,6 +64,7 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
     // Feature Modules
     AuthModule,
     AvailabilityModule,
+    SearchModule,
   ],
   providers: [
     {
