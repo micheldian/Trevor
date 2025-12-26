@@ -6,10 +6,12 @@ import {
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   Unique,
 } from 'typeorm';
 import { Match } from '../../matches/entities/match.entity';
 import { Profile } from '../../profiles/entities/profile.entity';
+import { User } from '../../users/entities/user.entity';
 
 @Entity('reviews')
 @Unique('unique_match_reviewer', ['matchId', 'reviewerId'])
@@ -73,6 +75,49 @@ export class Review {
   @Column({ name: 'would_work_again', type: 'boolean', nullable: true })
   wouldWorkAgain?: boolean;
 
+  // Moderation fields
+  @Column({ name: 'is_hidden', type: 'boolean', default: false })
+  isHidden: boolean;
+
+  @Column({ name: 'hidden_reason', type: 'text', nullable: true })
+  hiddenReason?: string | null;
+
+  @Column({ name: 'hidden_at', type: 'timestamp', nullable: true })
+  hiddenAt?: Date | null;
+
+  @Column({ name: 'hidden_by', type: 'uuid', nullable: true })
+  hiddenById?: string | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'hidden_by' })
+  hiddenBy?: User;
+
+  @Column({ name: 'is_flagged', type: 'boolean', default: false })
+  isFlagged: boolean;
+
+  @Column({ name: 'flag_reason', type: 'text', nullable: true })
+  flagReason?: string | null;
+
+  @Column({ name: 'flagged_at', type: 'timestamp', nullable: true })
+  flaggedAt?: Date | null;
+
+  @Column({ name: 'flagged_by', type: 'uuid', nullable: true })
+  flaggedById?: string | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'flagged_by' })
+  flaggedBy?: User;
+
+  @Column({ name: 'moderated_by', type: 'uuid', nullable: true })
+  moderatedById?: string | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'moderated_by' })
+  moderatedBy?: User;
+
+  @Column({ name: 'moderated_at', type: 'timestamp', nullable: true })
+  moderatedAt?: Date | null;
+
   // Métadonnées
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;
@@ -82,4 +127,7 @@ export class Review {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  @DeleteDateColumn({ name: 'deleted_at' })
+  deletedAt?: Date | null;
 }

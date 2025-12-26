@@ -23,6 +23,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
 import { AdminService } from './admin.service';
 import { AdminUsersService } from './services/admin-users.service';
+import { AdminReviewsService } from './services/admin-reviews.service';
 import { AdminRateLimitGuard } from './guards/admin-rate-limit.guard';
 import { AdminIpLockGuard } from './guards/admin-ip-lock.guard';
 import { AdminFailureInterceptor } from './interceptors/admin-failure.interceptor';
@@ -32,6 +33,13 @@ import { PaginatedUsersResponseDto } from './dto/user-response.dto';
 import { DetailedUserResponseDto } from './dto/detailed-user-response.dto';
 import { SuspendUserDto, BanUserDto } from './dto/suspend-user.dto';
 import { MergeUsersDto, MergeUsersResponseDto } from './dto/merge-users.dto';
+import {
+  GetAdminReviewsQueryDto,
+  AdminReviewResponseDto,
+  PaginatedAdminReviewsResponseDto,
+  HideReviewDto,
+  UpdateReviewContentDto,
+} from './dto/admin-reviews.dto';
 
 /**
  * Admin Controller
@@ -57,6 +65,7 @@ export class AdminController {
   constructor(
     private readonly adminService: AdminService,
     private readonly adminUsersService: AdminUsersService,
+    private readonly adminReviewsService: AdminReviewsService,
   ) {}
 
   /**
@@ -528,5 +537,236 @@ export class AdminController {
   })
   async unlockIp(@Param('ip') ip: string) {
     return this.adminService.unlockIp(ip);
+  }
+
+  /**
+   * Get all reviews with filters for moderation
+   * Only accessible to admins
+   */
+  @Get('reviews')
+  @ApiOperation({
+    summary: 'Get paginated reviews with filters (admin only)',
+    description: `
+      Get reviews with pagination, filtering, and sorting for moderation purposes.
+
+      Filters:
+      - maxRating: Filter by maximum rating (e.g., 2 for poor reviews)
+      - minRating: Filter by minimum rating (e.g., 4 for good reviews)
+      - flagged: Filter flagged reviews only (true/false)
+      - hidden: Filter hidden reviews only (true/false)
+      - includeDeleted: Include soft-deleted reviews (true/false)
+      - reviewerId: Filter by reviewer user ID
+      - reviewedId: Filter by reviewed user ID
+      - search: Search in comment text (case-insensitive)
+
+      Sorting:
+      - sortBy: Sort field (createdAt, rating, flaggedAt)
+      - sortOrder: Sort order (ASC, DESC)
+
+      Returns review data with moderation information:
+      - Reviewer and reviewed user details
+      - Hidden/flagged status and reasons
+      - Moderation history (who, when)
+      - Soft delete status
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated list of reviews with moderation data',
+    type: PaginatedAdminReviewsResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid query parameters',
+  })
+  async getReviews(
+    @Query() query: GetAdminReviewsQueryDto,
+  ): Promise<PaginatedAdminReviewsResponseDto> {
+    return this.adminReviewsService.getReviews(query);
+  }
+
+  /**
+   * Get single review by ID with full moderation details
+   * Only accessible to admins
+   */
+  @Get('reviews/:reviewId')
+  @ApiOperation({
+    summary: 'Get review by ID with moderation details (admin only)',
+    description: `
+      Get comprehensive information about a specific review including:
+      - Full review content and rating
+      - Reviewer and reviewed user information
+      - Hidden status and reason
+      - Flagged status and reason
+      - Soft delete status
+      - Complete moderation history
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Detailed review information',
+    type: AdminReviewResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Review not found',
+  })
+  async getReview(
+    @Param('reviewId') reviewId: string,
+  ): Promise<AdminReviewResponseDto> {
+    return this.adminReviewsService.getReview(reviewId);
+  }
+
+  /**
+   * Hide a review from public display
+   * Only accessible to admins
+   */
+  @Post('reviews/:reviewId/hide')
+  @SensitiveAction() // Sensitive: Hiding reviews affects public visibility
+  @ApiOperation({
+    summary: 'Hide review (admin only)',
+    description: `
+      Hide a review from public display. This action:
+      - Sets isHidden to true
+      - Records the reason for hiding
+      - Records timestamp and admin who hid it
+      - Creates an audit log entry
+
+      Hidden reviews are still accessible to admins but not visible to regular users.
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Review hidden successfully',
+    type: AdminReviewResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - review is already hidden',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Review not found',
+  })
+  async hideReview(
+    @Param('reviewId') reviewId: string,
+    @Body() dto: HideReviewDto,
+    @Request() req: any,
+  ): Promise<AdminReviewResponseDto> {
+    const adminUserId = req.user?.userId;
+    return this.adminReviewsService.hideReview(reviewId, dto, adminUserId, req);
+  }
+
+  /**
+   * Unhide a review (restore to public visibility)
+   * Only accessible to admins
+   */
+  @Post('reviews/:reviewId/unhide')
+  @SensitiveAction() // Sensitive: Restoring review visibility
+  @ApiOperation({
+    summary: 'Unhide review (admin only)',
+    description: `
+      Restore a hidden review to public visibility. This action:
+      - Sets isHidden to false
+      - Clears hidden reason and timestamp
+      - Records the admin who unhid it
+      - Creates an audit log entry
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Review unhidden successfully',
+    type: AdminReviewResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - review is not hidden',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Review not found',
+  })
+  async unhideReview(
+    @Param('reviewId') reviewId: string,
+    @Request() req: any,
+  ): Promise<AdminReviewResponseDto> {
+    const adminUserId = req.user?.userId;
+    return this.adminReviewsService.unhideReview(reviewId, adminUserId, req);
+  }
+
+  /**
+   * Soft delete a review
+   * Only accessible to admins
+   */
+  @Delete('reviews/:reviewId')
+  @SensitiveAction() // Sensitive: Review deletion
+  @ApiOperation({
+    summary: 'Soft delete review (admin only)',
+    description: `
+      Soft delete a review. This action:
+      - Sets deleted_at timestamp
+      - Marks review as inactive
+      - Records the admin who deleted it
+      - Creates an audit log entry
+
+      Soft-deleted reviews are excluded from public queries but can be restored.
+      Use includeDeleted=true in GET /admin/reviews to see deleted reviews.
+    `,
+  })
+  @ApiResponse({
+    status: 204,
+    description: 'Review deleted successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - review is already deleted',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Review not found',
+  })
+  async deleteReview(
+    @Param('reviewId') reviewId: string,
+    @Request() req: any,
+  ): Promise<void> {
+    const adminUserId = req.user?.userId;
+    return this.adminReviewsService.deleteReview(reviewId, adminUserId, req);
+  }
+
+  /**
+   * Update review content (optional admin edit)
+   * Only accessible to admins
+   */
+  @Patch('reviews/:reviewId')
+  @SensitiveAction() // Sensitive: Editing user-generated content
+  @ApiOperation({
+    summary: 'Update review content (admin only)',
+    description: `
+      Update review comment and/or rating. This action:
+      - Updates the comment text (if provided)
+      - Updates the rating (if provided)
+      - Records the admin who edited it
+      - Records moderation timestamp
+      - Creates an audit log entry with before/after state
+
+      This is an optional feature for content moderation when hiding is not appropriate.
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Review updated successfully',
+    type: AdminReviewResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Review not found',
+  })
+  async updateReview(
+    @Param('reviewId') reviewId: string,
+    @Body() dto: UpdateReviewContentDto,
+    @Request() req: any,
+  ): Promise<AdminReviewResponseDto> {
+    const adminUserId = req.user?.userId;
+    return this.adminReviewsService.updateReview(reviewId, dto, adminUserId, req);
   }
 }

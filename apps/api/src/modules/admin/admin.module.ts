@@ -4,6 +4,7 @@ import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { AdminUsersService } from './services/admin-users.service';
+import { AdminReviewsService } from './services/admin-reviews.service';
 import { AdminIpLockService } from './services/admin-ip-lock.service';
 import { AdminRateLimitGuard } from './guards/admin-rate-limit.guard';
 import { AdminIpLockGuard } from './guards/admin-ip-lock.guard';
@@ -13,16 +14,18 @@ import { User } from '../users/entities/user.entity';
 import { Profile } from '../profiles/entities/profile.entity';
 import { Job } from '../jobs/entities/job.entity';
 import { Match } from '../matches/entities/match.entity';
+import { Review } from '../reviews/entities/review.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Profile, Job, Match]),
+    TypeOrmModule.forFeature([User, Profile, Job, Match, Review]),
     AuditLogModule,
   ],
   controllers: [AdminController],
   providers: [
     AdminService,
     AdminUsersService,
+    AdminReviewsService,
     AdminIpLockService,
     AdminRateLimitGuard,
     AdminIpLockGuard,
@@ -31,6 +34,7 @@ import { Match } from '../matches/entities/match.entity';
   exports: [
     AdminService,
     AdminUsersService,
+    AdminReviewsService,
     AdminIpLockService,
     AdminRateLimitGuard,
     AdminIpLockGuard,
