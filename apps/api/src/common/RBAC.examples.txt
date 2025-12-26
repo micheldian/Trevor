@@ -1,0 +1,458 @@
+/**
+ * RBAC Usage Examples
+ *
+ * This file contains real-world examples of how to use the RBAC system
+ * in different scenarios.
+ */
+
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+  Request,
+  ForbiddenException,
+} from '@nestjs/common';
+import { JwtAuthGuard } from '../modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
+import { Roles } from './decorators/roles.decorator';
+import { Role } from './enums/role.enum';
+
+// ============================================
+// Example 1: Employer-Only Job Creation
+// ============================================
+
+@Controller('jobs')
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class JobsControllerExample {
+  /**
+   * Only employers can create jobs
+   */
+  @Post()
+  @Roles(Role.EMPLOYER)
+  async createJob(@Request() req, @Body() createJobDto: any) {
+    // req.user.role will be 'employer'
+    return {
+      message: 'Job created by employer',
+      employerId: req.user.sub,
+      role: req.user.role,
+    };
+  }
+
+  /**
+   * Only employers can publish their jobs
+   */
+  @Patch(':id/publish')
+  @Roles(Role.EMPLOYER)
+  async publishJob(@Param('id') id: string, @Request() req) {
+    // Verify the job belongs to this employer
+    // Then publish it
+    return { message: 'Job published' };
+  }
+
+  /**
+   * Any authenticated user can view published jobs
+   */
+  @Get('published')
+  async getPublishedJobs() {
+    // No @Roles() decorator = any authenticated user
+    return { message: 'List of published jobs' };
+  }
+}
+
+// ============================================
+// Example 2: Worker-Specific Routes
+// ============================================
+
+@Controller('availability')
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class AvailabilityControllerExample {
+  /**
+   * Only workers and team leads can manage availability
+   */
+  @Post()
+  @Roles(Role.WORKER, Role.TEAM_LEAD)
+  async createAvailability(@Request() req, @Body() dto: any) {
+    return {
+      message: 'Availability created',
+      userId: req.user.sub,
+      role: req.user.role,
+    };
+  }
+
+  /**
+   * Workers can view their own availability
+   */
+  @Get('my-availability')
+  @Roles(Role.WORKER, Role.TEAM_LEAD)
+  async getMyAvailability(@Request() req) {
+    return {
+      message: 'Your availability',
+      userId: req.user.sub,
+    };
+  }
+}
+
+// ============================================
+// Example 3: Admin-Only Routes
+// ============================================
+
+@Controller('admin')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.ADMIN) // Apply to entire controller
+export class AdminControllerExample {
+  /**
+   * Admin: Get all users
+   */
+  @Get('users')
+  async getAllUsers(@Request() req) {
+    // Only admins can access this
+    return {
+      message: 'All users',
+      requestedBy: req.user.sub,
+    };
+  }
+
+  /**
+   * Admin: Change user role
+   */
+  @Patch('users/:userId/role')
+  async updateUserRole(
+    @Param('userId') userId: string,
+    @Body() body: { role: Role },
+  ) {
+    return {
+      message: `User ${userId} role updated to ${body.role}`,
+    };
+  }
+
+  /**
+   * Admin: Delete user
+   */
+  @Delete('users/:userId')
+  async deleteUser(@Param('userId') userId: string) {
+    return {
+      message: `User ${userId} deleted`,
+    };
+  }
+}
+
+// ============================================
+// Example 4: Mixed Role Access
+// ============================================
+
+@Controller('matches')
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class MatchesControllerExample {
+  /**
+   * Employers create matches when clicking WhatsApp
+   */
+  @Post()
+  @Roles(Role.EMPLOYER)
+  async createMatch(@Request() req, @Body() dto: any) {
+    return {
+      message: 'Match created',
+      employerId: req.user.sub,
+    };
+  }
+
+  /**
+   * Both employers and workers can view their matches
+   */
+  @Get('my-matches')
+  @Roles(Role.EMPLOYER, Role.WORKER, Role.TEAM_LEAD)
+  async getMyMatches(@Request() req) {
+    // Return different data based on role
+    if (req.user.role === Role.EMPLOYER) {
+      return { message: 'Matches for jobs you posted' };
+    } else {
+      return { message: 'Matches where you are the candidate' };
+    }
+  }
+
+  /**
+   * Admins can view all matches
+   */
+  @Get('all')
+  @Roles(Role.ADMIN)
+  async getAllMatches() {
+    return { message: 'All matches on the platform' };
+  }
+}
+
+// ============================================
+// Example 5: Role-Based Conditional Logic
+// ============================================
+
+@Controller('dashboard')
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class DashboardControllerExample {
+  /**
+   * Dashboard endpoint that returns different data based on role
+   */
+  @Get()
+  async getDashboard(@Request() req) {
+    switch (req.user.role) {
+      case Role.WORKER:
+      case Role.TEAM_LEAD:
+        return {
+          type: 'worker-dashboard',
+          data: {
+            upcomingJobs: [],
+            earnings: 0,
+            completedMissions: 0,
+          },
+        };
+
+      case Role.EMPLOYER:
+        return {
+          type: 'employer-dashboard',
+          data: {
+            activeJobs: [],
+            totalApplicants: 0,
+            hiringStats: {},
+          },
+        };
+
+      case Role.ADMIN:
+        return {
+          type: 'admin-dashboard',
+          data: {
+            totalUsers: 1000,
+            activeJobs: 50,
+            platformRevenue: 10000,
+          },
+        };
+
+      default:
+        throw new ForbiddenException('Unknown role');
+    }
+  }
+}
+
+// ============================================
+// Example 6: Resource Ownership Validation
+// ============================================
+
+@Controller('profiles')
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class ProfilesControllerExample {
+  /**
+   * Any authenticated user can view profiles
+   */
+  @Get(':id')
+  async getProfile(@Param('id') id: string) {
+    return { message: `Profile ${id}` };
+  }
+
+  /**
+   * Users can only edit their own profile (or admins can edit any)
+   */
+  @Patch(':id')
+  async updateProfile(
+    @Param('id') id: string,
+    @Request() req,
+    @Body() updateDto: any,
+  ) {
+    // Check ownership or admin role
+    const userProfileId = req.user.profiles?.[0]?.id;
+
+    if (req.user.role !== Role.ADMIN && userProfileId !== id) {
+      throw new ForbiddenException('You can only edit your own profile');
+    }
+
+    return {
+      message: `Profile ${id} updated`,
+      updatedBy: req.user.sub,
+    };
+  }
+}
+
+// ============================================
+// Example 7: Team Lead Permissions
+// ============================================
+
+@Controller('teams')
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class TeamsControllerExample {
+  /**
+   * Only team leads can create teams
+   */
+  @Post()
+  @Roles(Role.TEAM_LEAD)
+  async createTeam(@Request() req, @Body() createTeamDto: any) {
+    return {
+      message: 'Team created',
+      leaderId: req.user.sub,
+    };
+  }
+
+  /**
+   * Team leads can add members to their team
+   */
+  @Post(':teamId/members')
+  @Roles(Role.TEAM_LEAD)
+  async addTeamMember(
+    @Param('teamId') teamId: string,
+    @Body() body: { workerId: string },
+  ) {
+    return {
+      message: `Worker ${body.workerId} added to team ${teamId}`,
+    };
+  }
+
+  /**
+   * Workers can view teams they belong to
+   */
+  @Get('my-teams')
+  @Roles(Role.WORKER, Role.TEAM_LEAD)
+  async getMyTeams(@Request() req) {
+    return {
+      message: 'Your teams',
+      userId: req.user.sub,
+    };
+  }
+}
+
+// ============================================
+// Example 8: Public + Protected Endpoints
+// ============================================
+
+import { Public } from '../modules/auth/decorators/public.decorator';
+
+@Controller('info')
+export class InfoControllerExample {
+  /**
+   * Public endpoint - no authentication required
+   */
+  @Get('platform')
+  @Public()
+  async getPlatformInfo() {
+    return {
+      name: 'Trevor',
+      version: '1.0.0',
+      description: 'Agricultural worker-employer matching platform',
+    };
+  }
+
+  /**
+   * Protected endpoint - requires authentication
+   */
+  @Get('user-stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  async getUserStats(@Request() req) {
+    return {
+      userId: req.user.sub,
+      role: req.user.role,
+      // ... user-specific stats
+    };
+  }
+
+  /**
+   * Admin-only endpoint
+   */
+  @Get('internal-metrics')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  async getInternalMetrics() {
+    return {
+      message: 'Internal platform metrics',
+      // ... sensitive data
+    };
+  }
+}
+
+// ============================================
+// Example 9: Helper Function for Role Checks
+// ============================================
+
+export class RoleCheckExamples {
+  /**
+   * Check if user has any of the required roles
+   */
+  static hasAnyRole(userRole: Role, allowedRoles: Role[]): boolean {
+    return allowedRoles.includes(userRole);
+  }
+
+  /**
+   * Check if user is admin
+   */
+  static isAdmin(userRole: Role): boolean {
+    return userRole === Role.ADMIN;
+  }
+
+  /**
+   * Check if user can manage job
+   */
+  static canManageJob(userRole: Role, jobOwnerId: string, userId: string): boolean {
+    // Admins can manage any job
+    if (userRole === Role.ADMIN) return true;
+
+    // Employers can only manage their own jobs
+    if (userRole === Role.EMPLOYER && jobOwnerId === userId) return true;
+
+    return false;
+  }
+
+  /**
+   * Usage in controller:
+   */
+  exampleUsage(@Request() req, jobOwnerId: string) {
+    if (!RoleCheckExamples.canManageJob(req.user.role, jobOwnerId, req.user.sub)) {
+      throw new ForbiddenException('Cannot manage this job');
+    }
+  }
+}
+
+// ============================================
+// Example 10: Custom Decorator Combining Guards
+// ============================================
+
+import { applyDecorators } from '@nestjs/common';
+
+/**
+ * Custom decorator that combines JWT auth, roles, and API documentation
+ */
+export function AuthRoles(...roles: Role[]) {
+  return applyDecorators(
+    UseGuards(JwtAuthGuard, RolesGuard),
+    Roles(...roles),
+  );
+}
+
+/**
+ * Usage:
+ */
+@Controller('example')
+export class CustomDecoratorExample {
+  @Post('employer-action')
+  @AuthRoles(Role.EMPLOYER)
+  async employerAction() {
+    return { message: 'Employer action' };
+  }
+
+  @Get('admin-action')
+  @AuthRoles(Role.ADMIN)
+  async adminAction() {
+    return { message: 'Admin action' };
+  }
+}
+
+/**
+ * Summary of RBAC Usage Patterns:
+ *
+ * 1. Single role:        @Roles(Role.ADMIN)
+ * 2. Multiple roles:     @Roles(Role.EMPLOYER, Role.ADMIN)
+ * 3. Controller-level:   @Roles(Role.ADMIN) on class
+ * 4. No restriction:     Don't use @Roles()
+ * 5. Conditional logic:  Check req.user.role in handler
+ * 6. Resource ownership: Validate user ID + role
+ * 7. Custom decorators:  Combine guards for convenience
+ *
+ * Always remember the guard order:
+ * @UseGuards(JwtAuthGuard, RolesGuard)
+ */

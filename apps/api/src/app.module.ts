@@ -10,7 +10,9 @@ import { SearchModule } from './modules/search/search.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { MatchesModule } from './modules/matches/matches.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from './common/guards/roles.guard';
 
 @Module({
   imports: [
@@ -71,11 +73,16 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
     JobsModule,
     MatchesModule,
     ReviewsModule,
+    AdminModule,
   ],
   providers: [
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard, // JWT global (sauf routes @Public)
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard, // RBAC global
     },
     {
       provide: APP_GUARD,

@@ -1,7 +1,10 @@
+import { Role } from '../../../common/enums/role.enum';
+
 export interface JwtPayload {
   sub: string; // user ID
   email?: string;
   phone?: string;
+  role: Role; // User role for RBAC
   profiles?: {
     id: string;
     type: 'worker' | 'team_lead' | 'employer';
@@ -18,6 +21,7 @@ export interface AuthResponse {
     id: string;
     email?: string;
     phone?: string;
+    role: Role;
     firstName?: string;
     lastName?: string;
     profiles?: {

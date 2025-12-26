@@ -84,6 +84,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         phone: user.phone,
+        role: user.role,
         firstName: user.firstName,
         lastName: user.lastName,
         profiles: user.profiles?.map((p) => ({
@@ -107,6 +108,7 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       phone: user.phone,
+      role: user.role,
       profiles: user.profiles?.map((p) => ({
         id: p.id,
         type: p.type as 'worker' | 'team_lead' | 'employer',

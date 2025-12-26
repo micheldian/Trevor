@@ -7,6 +7,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { Profile } from '../../profiles/entities/profile.entity';
+import { Role } from '../../../common/enums/role.enum';
 
 @Entity('users')
 export class User {
@@ -21,6 +22,13 @@ export class User {
 
   @Column({ name: 'phone_verified', default: false })
   phoneVerified: boolean;
+
+  @Column({
+    type: 'enum',
+    enum: Role,
+    default: Role.WORKER,
+  })
+  role: Role;
 
   @Column({ name: 'first_name', nullable: true, length: 100 })
   firstName?: string;
