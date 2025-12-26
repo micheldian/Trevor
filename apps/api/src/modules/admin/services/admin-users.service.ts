@@ -798,8 +798,8 @@ export class AdminUsersService {
 
     // Update user
     user.isVerified = false;
-    user.verifiedAt = null;
-    user.verifiedById = null;
+    user.verifiedAt = undefined;
+    user.verifiedById = undefined;
 
     const updatedUser = await this.userRepository.save(user);
 
@@ -876,8 +876,8 @@ export class AdminUsersService {
     user.suspendedAt = new Date();
     user.suspendedById = adminUserId;
     // Clear banned fields if previously banned
-    user.bannedAt = null;
-    user.bannedById = null;
+    user.bannedAt = undefined;
+    user.bannedById = undefined;
 
     const updatedUser = await this.userRepository.save(user);
 
@@ -948,10 +948,10 @@ export class AdminUsersService {
 
     // Update user
     user.status = UserStatus.ACTIVE;
-    user.suspendReason = null;
-    user.suspendUntil = null;
-    user.suspendedAt = null;
-    user.suspendedById = null;
+    user.suspendReason = undefined;
+    user.suspendUntil = undefined;
+    user.suspendedAt = undefined;
+    user.suspendedById = undefined;
 
     const updatedUser = await this.userRepository.save(user);
 
@@ -1021,12 +1021,12 @@ export class AdminUsersService {
     // Update user
     user.status = UserStatus.BANNED;
     user.suspendReason = reason.trim();
-    user.suspendUntil = null; // No expiry for bans
+    user.suspendUntil = undefined; // No expiry for bans
     user.bannedAt = new Date();
     user.bannedById = adminUserId;
     // Clear suspended fields
-    user.suspendedAt = null;
-    user.suspendedById = null;
+    user.suspendedAt = undefined;
+    user.suspendedById = undefined;
 
     const updatedUser = await this.userRepository.save(user);
 

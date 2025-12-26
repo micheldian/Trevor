@@ -66,10 +66,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
       // If suspension has expired, auto-restore to active
       user.status = UserStatus.ACTIVE;
-      user.suspendReason = null;
-      user.suspendUntil = null;
-      user.suspendedAt = null;
-      user.suspendedById = null;
+      user.suspendReason = undefined;
+      user.suspendUntil = undefined;
+      user.suspendedAt = undefined;
+      user.suspendedById = undefined;
     }
 
     // Update last login and last seen
