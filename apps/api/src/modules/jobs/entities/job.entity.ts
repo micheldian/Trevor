@@ -85,6 +85,10 @@ export class Job {
   @Column({ type: 'decimal', precision: 10, scale: 7 })
   longitude: number;
 
+  // PostGIS geography column (managed separately from lat/lng)
+  @Column({ type: 'geography', spatialFeatureType: 'Point', srid: 4326, nullable: true })
+  location?: string;
+
   @Column({ type: 'varchar', length: 200, nullable: true })
   address?: string;
 

@@ -105,6 +105,10 @@ export class Profile {
   @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
   longitude?: number;
 
+  // PostGIS geography column (managed separately from lat/lng)
+  @Column({ type: 'geography', spatialFeatureType: 'Point', srid: 4326, nullable: true })
+  location?: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
