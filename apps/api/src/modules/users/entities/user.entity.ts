@@ -5,6 +5,8 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { Profile } from '../../profiles/entities/profile.entity';
 import { Role } from '../../../common/enums/role.enum';
@@ -47,6 +49,16 @@ export class User {
 
   @Column({ name: 'is_verified', default: false })
   isVerified: boolean;
+
+  @Column({ name: 'verified_at', nullable: true, type: 'timestamp' })
+  verifiedAt?: Date;
+
+  @Column({ name: 'verified_by', nullable: true })
+  verifiedById?: string;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'verified_by' })
+  verifiedBy?: User;
 
   @Column({ name: 'last_login_at', nullable: true, type: 'timestamp' })
   lastLoginAt?: Date;

@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { AuditLogService } from '../../audit-log/audit-log.service';
 import { GetUsersQueryDto } from '../dto/get-users-query.dto';
 import {
   PaginatedUsersResponseDto,
@@ -19,6 +20,7 @@ import {
   AuditLogDto,
   DetailedStatsDto,
 } from '../dto/detailed-user-response.dto';
+import { Request } from 'express';
 
 /**
  * Admin Users Service
@@ -32,6 +34,7 @@ export class AdminUsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -707,5 +710,123 @@ export class AdminUsersService {
       lastLoginAt: user?.lastLoginAt,
       accountAgeDays,
     };
+  }
+
+  /**
+   * Verify a user
+   * Sets isVerified to true, records verification timestamp and admin
+   */
+  async verifyUser(
+    userId: string,
+    adminUserId: string,
+    request?: Request,
+  ): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    // Capture before state
+    const before = {
+      isVerified: user.isVerified,
+      verifiedAt: user.verifiedAt,
+      verifiedById: user.verifiedById,
+    };
+
+    // Update user
+    user.isVerified = true;
+    user.verifiedAt = new Date();
+    user.verifiedById = adminUserId;
+
+    const updatedUser = await this.userRepository.save(user);
+
+    // Capture after state
+    const after = {
+      isVerified: updatedUser.isVerified,
+      verifiedAt: updatedUser.verifiedAt,
+      verifiedById: updatedUser.verifiedById,
+    };
+
+    // Log to audit
+    await this.auditLogService.create({
+      actorUserId: adminUserId,
+      action: 'user.verified',
+      entityType: 'user',
+      entityId: userId,
+      beforeJson: before,
+      afterJson: after,
+      ...(request ? this.auditLogService.extractRequestMetadata(request) : {}),
+      metadata: {
+        description: 'Admin verified user account',
+      },
+    });
+
+    this.logger.log(
+      `User ${userId} verified by admin ${adminUserId}`,
+    );
+
+    return updatedUser;
+  }
+
+  /**
+   * Unverify a user
+   * Sets isVerified to false, clears verification timestamp and admin
+   */
+  async unverifyUser(
+    userId: string,
+    adminUserId: string,
+    request?: Request,
+  ): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    // Capture before state
+    const before = {
+      isVerified: user.isVerified,
+      verifiedAt: user.verifiedAt,
+      verifiedById: user.verifiedById,
+    };
+
+    // Update user
+    user.isVerified = false;
+    user.verifiedAt = null;
+    user.verifiedById = null;
+
+    const updatedUser = await this.userRepository.save(user);
+
+    // Capture after state
+    const after = {
+      isVerified: updatedUser.isVerified,
+      verifiedAt: updatedUser.verifiedAt,
+      verifiedById: updatedUser.verifiedById,
+    };
+
+    // Log to audit
+    await this.auditLogService.create({
+      actorUserId: adminUserId,
+      action: 'user.unverified',
+      entityType: 'user',
+      entityId: userId,
+      beforeJson: before,
+      afterJson: after,
+      ...(request ? this.auditLogService.extractRequestMetadata(request) : {}),
+      metadata: {
+        description: 'Admin removed user verification',
+      },
+    });
+
+    this.logger.log(
+      `User ${userId} unverified by admin ${adminUserId}`,
+    );
+
+    return updatedUser;
   }
 }

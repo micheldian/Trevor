@@ -149,6 +149,70 @@ export class AdminController {
   }
 
   /**
+   * Verify a user
+   * Only accessible to admins
+   */
+  @Post('users/:userId/verify')
+  @SensitiveAction() // Sensitive: User verification affects trust
+  @ApiOperation({
+    summary: 'Verify user (admin only)',
+    description: `
+      Verify a user account. This action:
+      - Sets isVerified to true
+      - Records verification timestamp
+      - Records the admin who verified the user
+      - Creates an audit log entry
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User verified successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+  })
+  async verifyUser(
+    @Param('userId') userId: string,
+    @Request() req: any,
+  ) {
+    const adminUserId = req.user?.userId;
+    return this.adminUsersService.verifyUser(userId, adminUserId, req);
+  }
+
+  /**
+   * Unverify a user
+   * Only accessible to admins
+   */
+  @Post('users/:userId/unverify')
+  @SensitiveAction() // Sensitive: Removing verification affects trust
+  @ApiOperation({
+    summary: 'Unverify user (admin only)',
+    description: `
+      Remove verification from a user account. This action:
+      - Sets isVerified to false
+      - Clears verification timestamp
+      - Clears the admin who verified the user
+      - Creates an audit log entry
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User unverified successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+  })
+  async unverifyUser(
+    @Param('userId') userId: string,
+    @Request() req: any,
+  ) {
+    const adminUserId = req.user?.userId;
+    return this.adminUsersService.unverifyUser(userId, adminUserId, req);
+  }
+
+  /**
    * Update user role
    * Only accessible to admins
    */
