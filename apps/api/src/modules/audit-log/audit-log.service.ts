@@ -35,7 +35,7 @@ export class AuditLogService {
   /**
    * Create an audit log entry
    */
-  async create(dto: CreateAuditLogDto): Promise<AuditLog> {
+  async create(dto: CreateAuditLogDto): Promise<AuditLog | null> {
     try {
       const auditLog = this.auditLogRepository.create(dto);
       await this.auditLogRepository.save(auditLog);

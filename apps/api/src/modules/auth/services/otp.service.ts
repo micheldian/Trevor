@@ -134,7 +134,7 @@ export class OtpService {
       user = this.userRepository.create({
         phone: isPhone ? identifier : undefined,
         email: !isPhone ? identifier : undefined,
-        phoneVerified: isPhone,
+        isPhoneVerified: isPhone,
         // firstName et lastName seront ajoutés plus tard
       });
 
@@ -143,7 +143,7 @@ export class OtpService {
     } else {
       // Marquer comme vérifié
       if (isPhone) {
-        user.phoneVerified = true;
+        user.isPhoneVerified = true;
       }
       await this.userRepository.save(user);
     }

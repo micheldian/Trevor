@@ -54,7 +54,7 @@ export class AdminAuditExamplesController {
     status: 200,
     description: 'User verified successfully',
   })
-  async verifyUser(@Param('userId') userId: string, @Request() req) {
+  async verifyUser(@Param('userId') userId: string, @Request() req: any) {
     // Your business logic here
     // The @AuditLog() decorator will automatically log this action
 
@@ -88,7 +88,7 @@ export class AdminAuditExamplesController {
   async suspendUser(
     @Param('userId') userId: string,
     @Body() body: { reason: string },
-    @Request() req,
+    @Request() req: any,
   ) {
     // Your business logic here
     // The reason will be captured in beforeJson via includeParams
@@ -123,7 +123,7 @@ export class AdminAuditExamplesController {
   async deleteReview(
     @Param('reviewId') reviewId: string,
     @Body() body: { reason: string },
-    @Request() req,
+    @Request() req: any,
   ) {
     // Your business logic here
     // Review data and reason will be captured in audit log
@@ -157,7 +157,7 @@ export class AdminAuditExamplesController {
   async cancelJob(
     @Param('jobId') jobId: string,
     @Body() body: { reason: string },
-    @Request() req,
+    @Request() req: any,
   ) {
     // Your business logic here
     // Job ID and reason will be captured
@@ -193,7 +193,7 @@ export class AdminAuditExamplesController {
   async forceConfirmMatch(
     @Param('matchId') matchId: string,
     @Body() body: { reason: string },
-    @Request() req,
+    @Request() req: any,
   ) {
     // Your business logic here
     // This will be logged as admin intervention

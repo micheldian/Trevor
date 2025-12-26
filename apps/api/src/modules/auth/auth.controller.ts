@@ -118,7 +118,7 @@ export class AuthController {
       lastName: user.lastName,
       avatarUrl: user.avatarUrl,
       isVerified: user.isVerified,
-      phoneVerified: user.phoneVerified,
+      isPhoneVerified: user.isPhoneVerified,
       profiles: user.profiles?.map((p) => ({
         id: p.id,
         type: p.type,

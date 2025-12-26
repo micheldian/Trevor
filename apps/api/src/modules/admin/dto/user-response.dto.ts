@@ -83,30 +83,35 @@ export class UserResponseDto {
 }
 
 /**
+ * Pagination metadata DTO
+ */
+export class PaginationMetaDto {
+  @ApiProperty({ description: 'Current page', example: 1 })
+  page: number;
+
+  @ApiProperty({ description: 'Items per page', example: 20 })
+  limit: number;
+
+  @ApiProperty({ description: 'Total items', example: 157 })
+  total: number;
+
+  @ApiProperty({ description: 'Total pages', example: 8 })
+  totalPages: number;
+
+  @ApiProperty({ description: 'Has next page', example: true })
+  hasNext: boolean;
+
+  @ApiProperty({ description: 'Has previous page', example: false })
+  hasPrev: boolean;
+}
+
+/**
  * Paginated users response DTO
  */
 export class PaginatedUsersResponseDto {
   @ApiProperty({ description: 'List of users', type: [UserResponseDto] })
   data: UserResponseDto[];
 
-  @ApiProperty({ description: 'Pagination metadata' })
-  meta: {
-    @ApiProperty({ description: 'Current page', example: 1 })
-    page: number;
-
-    @ApiProperty({ description: 'Items per page', example: 20 })
-    limit: number;
-
-    @ApiProperty({ description: 'Total items', example: 157 })
-    total: number;
-
-    @ApiProperty({ description: 'Total pages', example: 8 })
-    totalPages: number;
-
-    @ApiProperty({ description: 'Has next page', example: true })
-    hasNext: boolean;
-
-    @ApiProperty({ description: 'Has previous page', example: false })
-    hasPrev: boolean;
-  };
+  @ApiProperty({ description: 'Pagination metadata', type: PaginationMetaDto })
+  meta: PaginationMetaDto;
 }

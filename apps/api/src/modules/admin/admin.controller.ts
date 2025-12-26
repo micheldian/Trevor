@@ -72,7 +72,7 @@ export class AdminController {
     status: 403,
     description: 'Forbidden - Admin role required',
   })
-  async getStats(@Request() req) {
+  async getStats(@Request() req: any) {
     return this.adminService.getStats(req.user);
   }
 

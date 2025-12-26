@@ -164,6 +164,10 @@ export class AvailabilityService {
       where: { id: availability.profileId },
     });
 
+    if (!profile) {
+      throw new NotFoundException('Profil non trouvé');
+    }
+
     if (profile.userId !== userId) {
       throw new ForbiddenException(
         'Vous ne pouvez modifier que vos propres disponibilités',
@@ -185,6 +189,10 @@ export class AvailabilityService {
     const profile = await this.profileRepository.findOne({
       where: { id: availability.profileId },
     });
+
+    if (!profile) {
+      throw new NotFoundException('Profil non trouvé');
+    }
 
     if (profile.userId !== userId) {
       throw new ForbiddenException(

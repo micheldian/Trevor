@@ -45,7 +45,7 @@ export class JobsController {
   @ApiResponse({ status: 403, description: 'Seuls les employeurs autorisés' })
   @ApiResponse({ status: 404, description: 'Profil non trouvé' })
   async create(
-    @Request() req,
+    @Request() req: any,
     @Param('profileId') profileId: string,
     @Body() createJobDto: CreateJobDto,
   ): Promise<Job> {
@@ -111,7 +111,7 @@ export class JobsController {
   })
   @ApiResponse({ status: 404, description: 'Profil non trouvé' })
   async findByEmployer(
-    @Request() req,
+    @Request() req: any,
     @Param('profileId') profileId: string,
   ): Promise<Job[]> {
     return this.jobsService.findByEmployer(req.user.userId, profileId);
@@ -149,7 +149,7 @@ export class JobsController {
     description: 'Impossible de modifier dans cet état',
   })
   async update(
-    @Request() req,
+    @Request() req: any,
     @Param('id') id: string,
     @Body() updateJobDto: UpdateJobDto,
   ): Promise<Job> {
@@ -180,7 +180,7 @@ export class JobsController {
   @ApiResponse({ status: 403, description: 'Accès refusé' })
   @ApiResponse({ status: 404, description: 'Mission non trouvée' })
   async transitionStatus(
-    @Request() req,
+    @Request() req: any,
     @Param('id') id: string,
     @Body() dto: TransitionJobStatusDto,
   ): Promise<Job> {
@@ -201,7 +201,7 @@ export class JobsController {
     status: 400,
     description: 'Impossible de supprimer dans cet état',
   })
-  async remove(@Request() req, @Param('id') id: string): Promise<void> {
+  async remove(@Request() req: any, @Param('id') id: string): Promise<void> {
     return this.jobsService.remove(req.user.userId, id);
   }
 }

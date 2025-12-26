@@ -32,7 +32,7 @@ export class UserStatusGuard implements CanActivate {
     private readonly userRepository: Repository<User>,
   ) {}
 
-  async canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const userId = request.user?.userId;
 

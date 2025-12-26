@@ -52,10 +52,10 @@ export class User {
   isVerified: boolean;
 
   @Column({ name: 'verified_at', nullable: true, type: 'timestamp' })
-  verifiedAt?: Date;
+  verifiedAt?: Date | null;
 
   @Column({ name: 'verified_by', nullable: true })
-  verifiedById?: string;
+  verifiedById?: string | null;
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'verified_by' })
@@ -69,26 +69,26 @@ export class User {
   status: UserStatus;
 
   @Column({ name: 'suspend_reason', nullable: true, type: 'text' })
-  suspendReason?: string;
+  suspendReason?: string | null;
 
   @Column({ name: 'suspend_until', nullable: true, type: 'timestamp' })
-  suspendUntil?: Date;
+  suspendUntil?: Date | null;
 
   @Column({ name: 'suspended_at', nullable: true, type: 'timestamp' })
-  suspendedAt?: Date;
+  suspendedAt?: Date | null;
 
   @Column({ name: 'suspended_by', nullable: true })
-  suspendedById?: string;
+  suspendedById?: string | null;
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'suspended_by' })
   suspendedBy?: User;
 
   @Column({ name: 'banned_at', nullable: true, type: 'timestamp' })
-  bannedAt?: Date;
+  bannedAt?: Date | null;
 
   @Column({ name: 'banned_by', nullable: true })
-  bannedById?: string;
+  bannedById?: string | null;
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'banned_by' })

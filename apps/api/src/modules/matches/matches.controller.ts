@@ -68,7 +68,7 @@ export class MatchesController {
     description: 'Candidat invalide ou pas de numéro WhatsApp',
   })
   async create(
-    @Request() req,
+    @Request() req: any,
     @Body() createMatchDto: CreateMatchDto,
   ): Promise<CreateMatchResponse> {
     return this.matchesService.createMatch(req.user.userId, createMatchDto);
@@ -124,7 +124,7 @@ export class MatchesController {
   })
   @ApiResponse({ status: 404, description: 'Profil employeur non trouvé' })
   async findByEmployer(
-    @Request() req,
+    @Request() req: any,
     @Param('employerId') employerId: string,
   ): Promise<Match[]> {
     return this.matchesService.findByEmployer(req.user.userId, employerId);
@@ -142,7 +142,7 @@ export class MatchesController {
   })
   @ApiResponse({ status: 404, description: 'Profil candidat non trouvé' })
   async findByCandidate(
-    @Request() req,
+    @Request() req: any,
     @Param('candidateId') candidateId: string,
   ): Promise<Match[]> {
     return this.matchesService.findByCandidate(req.user.userId, candidateId);
@@ -177,7 +177,7 @@ export class MatchesController {
   })
   @ApiResponse({ status: 404, description: 'Match non trouvé' })
   async updateStatus(
-    @Request() req,
+    @Request() req: any,
     @Param('id') id: string,
     @Body() dto: UpdateMatchStatusDto,
   ): Promise<Match> {
@@ -231,7 +231,7 @@ export class MatchesController {
     description: 'Conflit: disponibilité déjà réservée (double booking)',
   })
   async confirmMatch(
-    @Request() req,
+    @Request() req: any,
     @Param('id') id: string,
     @Body() dto: ConfirmMatchDto,
   ) {

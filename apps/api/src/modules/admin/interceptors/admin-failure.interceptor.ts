@@ -4,7 +4,7 @@ import {
   ExecutionContext,
   CallHandler,
   Logger,
-} from '@nestjs/core';
+} from '@nestjs/common';
 import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { Reflector } from '@nestjs/core';
