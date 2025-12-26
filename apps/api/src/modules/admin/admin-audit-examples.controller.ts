@@ -20,18 +20,22 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
 import { AuditLog } from '../audit-log/decorators/audit-log.decorator';
 import { AuditLogInterceptor } from '../audit-log/interceptors/audit-log.interceptor';
+import { AdminRateLimitGuard } from './guards/admin-rate-limit.guard';
+import { AdminIpLockGuard } from './guards/admin-ip-lock.guard';
+import { AdminFailureInterceptor } from './interceptors/admin-failure.interceptor';
+import { SensitiveAction } from './decorators/sensitive-action.decorator';
 
 /**
  * Admin Audit Examples Controller
  *
  * Demonstrates how to use the audit log system with @AuditLog() decorator
- * and AuditLogInterceptor
+ * and AuditLogInterceptor, combined with admin protection (IP lock, rate limiting).
  */
 @ApiTags('admin')
 @Controller('admin')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, AdminIpLockGuard, AdminRateLimitGuard)
 @Roles(Role.ADMIN)
-@UseInterceptors(AuditLogInterceptor) // Apply audit logging to all routes
+@UseInterceptors(AuditLogInterceptor, AdminFailureInterceptor) // Apply audit logging and failure tracking
 @ApiBearerAuth()
 export class AdminAuditExamplesController {
   /**
@@ -68,6 +72,7 @@ export class AdminAuditExamplesController {
    * Automatically logged with reason in metadata
    */
   @Patch('users/:userId/suspend')
+  @SensitiveAction() // Sensitive: User suspension
   @AuditLog({
     action: 'user.suspended',
     entityType: 'user',
@@ -103,6 +108,7 @@ export class AdminAuditExamplesController {
    * Logged with review data and reason
    */
   @Delete('reviews/:reviewId')
+  @SensitiveAction() // Sensitive: Review deletion
   @AuditLog({
     action: 'review.deleted',
     entityType: 'review',
@@ -171,6 +177,7 @@ export class AdminAuditExamplesController {
    * Useful for resolving disputes or manual confirmations
    */
   @Patch('matches/:matchId/force-confirm')
+  @SensitiveAction() // Sensitive: Force confirmation
   @AuditLog({
     action: 'match.force_confirmed',
     entityType: 'match',

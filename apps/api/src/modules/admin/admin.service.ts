@@ -6,6 +6,7 @@ import { Profile } from '../profiles/entities/profile.entity';
 import { Job } from '../jobs/entities/job.entity';
 import { Match } from '../matches/entities/match.entity';
 import { Role } from '../../common/enums/role.enum';
+import { AdminIpLockService } from './services/admin-ip-lock.service';
 
 @Injectable()
 export class AdminService {
@@ -20,6 +21,7 @@ export class AdminService {
     private readonly jobRepository: Repository<Job>,
     @InjectRepository(Match)
     private readonly matchRepository: Repository<Match>,
+    private readonly ipLockService: AdminIpLockService,
   ) {}
 
   /**
@@ -180,6 +182,56 @@ export class AdminService {
       usersByRole,
       jobsByStatus,
       matchesByStatus,
+    };
+  }
+
+  /**
+   * Get all locked IP addresses
+   */
+  async getLockedIps() {
+    const ips = await this.ipLockService.getLockedIps();
+
+    // Get stats for each locked IP
+    const ipsWithStats = await Promise.all(
+      ips.map(async (ip) => {
+        const stats = await this.ipLockService.getIpStats(ip);
+        return {
+          ip,
+          ...stats,
+        };
+      }),
+    );
+
+    return {
+      count: ipsWithStats.length,
+      lockedIps: ipsWithStats,
+    };
+  }
+
+  /**
+   * Get IP statistics
+   */
+  async getIpStats(ip: string) {
+    const stats = await this.ipLockService.getIpStats(ip);
+
+    return {
+      ip,
+      ...stats,
+    };
+  }
+
+  /**
+   * Unlock IP address
+   */
+  async unlockIp(ip: string) {
+    await this.ipLockService.unlockIp(ip);
+
+    this.logger.log(`IP ${ip} manually unlocked by admin`);
+
+    return {
+      success: true,
+      message: `IP ${ip} has been unlocked`,
+      ip,
     };
   }
 }
