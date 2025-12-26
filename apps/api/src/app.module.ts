@@ -9,6 +9,7 @@ import { AvailabilityModule } from './modules/availability/availability.module';
 import { SearchModule } from './modules/search/search.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { MatchesModule } from './modules/matches/matches.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 
 @Module({
@@ -69,6 +70,7 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
     SearchModule,
     JobsModule,
     MatchesModule,
+    ReviewsModule,
   ],
   providers: [
     {

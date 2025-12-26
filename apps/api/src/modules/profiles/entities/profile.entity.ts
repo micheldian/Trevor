@@ -73,6 +73,21 @@ export class Profile {
   @Column({ name: 'rating_count', default: 0 })
   ratingCount: number;
 
+  @Column({ name: 'missions_count', default: 0 })
+  missionsCount: number;
+
+  @Column({ name: 'completed_missions_count', default: 0 })
+  completedMissionsCount: number;
+
+  @Column({ name: 'no_show_count', default: 0 })
+  noShowCount: number;
+
+  @Column({ name: 'cancelled_count', default: 0 })
+  cancelledCount: number;
+
+  @Column({ name: 'reliability_score', type: 'decimal', precision: 5, scale: 2, default: 100 })
+  reliabilityScore: number;
+
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 
