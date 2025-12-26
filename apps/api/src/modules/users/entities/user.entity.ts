@@ -20,8 +20,11 @@ export class User {
   @Column({ unique: true, nullable: true, length: 20 })
   phone?: string;
 
-  @Column({ name: 'phone_verified', default: false })
-  phoneVerified: boolean;
+  @Column({ name: 'is_phone_verified', default: false })
+  isPhoneVerified: boolean;
+
+  @Column({ name: 'is_email_verified', default: false })
+  isEmailVerified: boolean;
 
   @Column({
     type: 'enum',
@@ -47,6 +50,9 @@ export class User {
 
   @Column({ name: 'last_login_at', nullable: true, type: 'timestamp' })
   lastLoginAt?: Date;
+
+  @Column({ name: 'last_seen_at', nullable: true, type: 'timestamp' })
+  lastSeenAt?: Date;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

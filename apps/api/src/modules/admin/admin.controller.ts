@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   UseGuards,
   UseInterceptors,
   Request,
@@ -21,10 +22,13 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
 import { AdminService } from './admin.service';
+import { AdminUsersService } from './services/admin-users.service';
 import { AdminRateLimitGuard } from './guards/admin-rate-limit.guard';
 import { AdminIpLockGuard } from './guards/admin-ip-lock.guard';
 import { AdminFailureInterceptor } from './interceptors/admin-failure.interceptor';
 import { SensitiveAction } from './decorators/sensitive-action.decorator';
+import { GetUsersQueryDto } from './dto/get-users-query.dto';
+import { PaginatedUsersResponseDto } from './dto/user-response.dto';
 
 /**
  * Admin Controller
@@ -47,7 +51,10 @@ import { SensitiveAction } from './decorators/sensitive-action.decorator';
 @Roles(Role.ADMIN) // All routes require ADMIN role
 @ApiBearerAuth()
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly adminUsersService: AdminUsersService,
+  ) {}
 
   /**
    * Get platform statistics
@@ -68,17 +75,45 @@ export class AdminController {
   }
 
   /**
-   * Get all users with details
+   * Get all users with details, pagination, and filters
    * Only accessible to admins
    */
   @Get('users')
-  @ApiOperation({ summary: 'Get all users (admin only)' })
+  @ApiOperation({
+    summary: 'Get paginated users with filters (admin only)',
+    description: `
+      Get users with pagination, filtering, and sorting.
+
+      Filters:
+      - role: Filter by user role (worker, team_lead, employer, admin)
+      - status: Filter by account status (active, inactive, suspended)
+      - verified: Filter by verification status (true/false)
+      - q: Search by name, email, or phone
+      - minRating: Filter by minimum average rating (0-5)
+      - hasVehicle: Filter by vehicle ownership (true/false)
+      - lastActiveRange: Filter by last activity (7, 30, or 90 days)
+
+      Sorting:
+      - sortBy: Sort field (createdAt, lastSeenAt, ratingAvg, missionsCount)
+      - sortOrder: Sort order (ASC, DESC)
+
+      Returns user data with statistics:
+      - ratingAvg: Average rating from reviews
+      - missionsCount: Number of completed missions
+      - lastSeenAt: Last activity timestamp
+    `,
+  })
   @ApiResponse({
     status: 200,
-    description: 'List of all users',
+    description: 'Paginated list of users with statistics',
+    type: PaginatedUsersResponseDto,
   })
-  async getAllUsers() {
-    return this.adminService.getAllUsers();
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid query parameters',
+  })
+  async getUsers(@Query() query: GetUsersQueryDto) {
+    return this.adminUsersService.getUsers(query);
   }
 
   /**

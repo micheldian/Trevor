@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
+import { AdminUsersService } from './services/admin-users.service';
 import { AdminIpLockService } from './services/admin-ip-lock.service';
 import { AdminRateLimitGuard } from './guards/admin-rate-limit.guard';
 import { AdminIpLockGuard } from './guards/admin-ip-lock.guard';
@@ -17,6 +18,7 @@ import { Match } from '../matches/entities/match.entity';
   controllers: [AdminController],
   providers: [
     AdminService,
+    AdminUsersService,
     AdminIpLockService,
     AdminRateLimitGuard,
     AdminIpLockGuard,
@@ -24,6 +26,7 @@ import { Match } from '../matches/entities/match.entity';
   ],
   exports: [
     AdminService,
+    AdminUsersService,
     AdminIpLockService,
     AdminRateLimitGuard,
     AdminIpLockGuard,
