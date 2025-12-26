@@ -1,7 +1,8 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { UserStatus } from '../../../common/enums/user-status.enum';
 import { AuditLogService } from '../../audit-log/audit-log.service';
 import { GetUsersQueryDto } from '../dto/get-users-query.dto';
 import {
@@ -828,5 +829,278 @@ export class AdminUsersService {
     );
 
     return updatedUser;
+  }
+
+  /**
+   * Suspend a user
+   * Sets status to suspended, records reason and optional expiry date
+   */
+  async suspendUser(
+    userId: string,
+    adminUserId: string,
+    reason: string,
+    suspendUntil?: Date,
+    request?: Request,
+  ): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    if (user.status === UserStatus.BANNED) {
+      throw new BadRequestException(
+        'Cannot suspend a banned user. Unban first if needed.',
+      );
+    }
+
+    if (!reason || reason.trim().length === 0) {
+      throw new BadRequestException('Suspend reason is required');
+    }
+
+    // Capture before state
+    const before = {
+      status: user.status,
+      suspendReason: user.suspendReason,
+      suspendUntil: user.suspendUntil,
+      suspendedAt: user.suspendedAt,
+      suspendedById: user.suspendedById,
+    };
+
+    // Update user
+    user.status = UserStatus.SUSPENDED;
+    user.suspendReason = reason.trim();
+    user.suspendUntil = suspendUntil || null;
+    user.suspendedAt = new Date();
+    user.suspendedById = adminUserId;
+    // Clear banned fields if previously banned
+    user.bannedAt = null;
+    user.bannedById = null;
+
+    const updatedUser = await this.userRepository.save(user);
+
+    // Capture after state
+    const after = {
+      status: updatedUser.status,
+      suspendReason: updatedUser.suspendReason,
+      suspendUntil: updatedUser.suspendUntil,
+      suspendedAt: updatedUser.suspendedAt,
+      suspendedById: updatedUser.suspendedById,
+    };
+
+    // Log to audit
+    await this.auditLogService.create({
+      actorUserId: adminUserId,
+      action: 'user.suspended',
+      entityType: 'user',
+      entityId: userId,
+      beforeJson: before,
+      afterJson: after,
+      ...(request ? this.auditLogService.extractRequestMetadata(request) : {}),
+      metadata: {
+        description: 'Admin suspended user account',
+        reason,
+        suspendUntil: suspendUntil?.toISOString(),
+        isTemporary: !!suspendUntil,
+      },
+    });
+
+    this.logger.log(
+      `User ${userId} suspended by admin ${adminUserId}${suspendUntil ? ` until ${suspendUntil.toISOString()}` : ' indefinitely'}`,
+    );
+
+    return updatedUser;
+  }
+
+  /**
+   * Unsuspend a user
+   * Sets status back to active, clears suspension data
+   */
+  async unsuspendUser(
+    userId: string,
+    adminUserId: string,
+    request?: Request,
+  ): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    if (user.status !== UserStatus.SUSPENDED) {
+      throw new BadRequestException(
+        `User is not suspended (current status: ${user.status})`,
+      );
+    }
+
+    // Capture before state
+    const before = {
+      status: user.status,
+      suspendReason: user.suspendReason,
+      suspendUntil: user.suspendUntil,
+      suspendedAt: user.suspendedAt,
+      suspendedById: user.suspendedById,
+    };
+
+    // Update user
+    user.status = UserStatus.ACTIVE;
+    user.suspendReason = null;
+    user.suspendUntil = null;
+    user.suspendedAt = null;
+    user.suspendedById = null;
+
+    const updatedUser = await this.userRepository.save(user);
+
+    // Capture after state
+    const after = {
+      status: updatedUser.status,
+      suspendReason: updatedUser.suspendReason,
+      suspendUntil: updatedUser.suspendUntil,
+      suspendedAt: updatedUser.suspendedAt,
+      suspendedById: updatedUser.suspendedById,
+    };
+
+    // Log to audit
+    await this.auditLogService.create({
+      actorUserId: adminUserId,
+      action: 'user.unsuspended',
+      entityType: 'user',
+      entityId: userId,
+      beforeJson: before,
+      afterJson: after,
+      ...(request ? this.auditLogService.extractRequestMetadata(request) : {}),
+      metadata: {
+        description: 'Admin unsuspended user account',
+      },
+    });
+
+    this.logger.log(
+      `User ${userId} unsuspended by admin ${adminUserId}`,
+    );
+
+    return updatedUser;
+  }
+
+  /**
+   * Ban a user permanently
+   * Sets status to banned, records reason
+   */
+  async banUser(
+    userId: string,
+    adminUserId: string,
+    reason: string,
+    request?: Request,
+  ): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    if (!reason || reason.trim().length === 0) {
+      throw new BadRequestException('Ban reason is required');
+    }
+
+    // Capture before state
+    const before = {
+      status: user.status,
+      suspendReason: user.suspendReason,
+      suspendUntil: user.suspendUntil,
+      suspendedAt: user.suspendedAt,
+      suspendedById: user.suspendedById,
+      bannedAt: user.bannedAt,
+      bannedById: user.bannedById,
+    };
+
+    // Update user
+    user.status = UserStatus.BANNED;
+    user.suspendReason = reason.trim();
+    user.suspendUntil = null; // No expiry for bans
+    user.bannedAt = new Date();
+    user.bannedById = adminUserId;
+    // Clear suspended fields
+    user.suspendedAt = null;
+    user.suspendedById = null;
+
+    const updatedUser = await this.userRepository.save(user);
+
+    // Capture after state
+    const after = {
+      status: updatedUser.status,
+      suspendReason: updatedUser.suspendReason,
+      suspendUntil: updatedUser.suspendUntil,
+      suspendedAt: updatedUser.suspendedAt,
+      suspendedById: updatedUser.suspendedById,
+      bannedAt: updatedUser.bannedAt,
+      bannedById: updatedUser.bannedById,
+    };
+
+    // Log to audit
+    await this.auditLogService.create({
+      actorUserId: adminUserId,
+      action: 'user.banned',
+      entityType: 'user',
+      entityId: userId,
+      beforeJson: before,
+      afterJson: after,
+      ...(request ? this.auditLogService.extractRequestMetadata(request) : {}),
+      metadata: {
+        description: 'Admin banned user account permanently',
+        reason,
+      },
+    });
+
+    this.logger.log(
+      `User ${userId} banned permanently by admin ${adminUserId}`,
+    );
+
+    return updatedUser;
+  }
+
+  /**
+   * Check if user is currently suspended (considering expiry)
+   */
+  isUserSuspended(user: User): boolean {
+    if (user.status !== UserStatus.SUSPENDED) {
+      return false;
+    }
+
+    // If no expiry date, suspension is indefinite
+    if (!user.suspendUntil) {
+      return true;
+    }
+
+    // Check if suspension has expired
+    return new Date() < user.suspendUntil;
+  }
+
+  /**
+   * Check if user can perform actions (not suspended or banned)
+   */
+  canUserPerformActions(user: User): { allowed: boolean; reason?: string } {
+    if (user.status === UserStatus.BANNED) {
+      return {
+        allowed: false,
+        reason: `Account banned: ${user.suspendReason}`,
+      };
+    }
+
+    if (this.isUserSuspended(user)) {
+      const until = user.suspendUntil
+        ? ` until ${user.suspendUntil.toISOString()}`
+        : ' indefinitely';
+      return {
+        allowed: false,
+        reason: `Account suspended${until}: ${user.suspendReason}`,
+      };
+    }
+
+    return { allowed: true };
   }
 }

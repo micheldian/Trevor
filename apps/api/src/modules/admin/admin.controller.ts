@@ -30,6 +30,7 @@ import { SensitiveAction } from './decorators/sensitive-action.decorator';
 import { GetUsersQueryDto } from './dto/get-users-query.dto';
 import { PaginatedUsersResponseDto } from './dto/user-response.dto';
 import { DetailedUserResponseDto } from './dto/detailed-user-response.dto';
+import { SuspendUserDto, BanUserDto } from './dto/suspend-user.dto';
 
 /**
  * Admin Controller
@@ -210,6 +211,134 @@ export class AdminController {
   ) {
     const adminUserId = req.user?.userId;
     return this.adminUsersService.unverifyUser(userId, adminUserId, req);
+  }
+
+  /**
+   * Suspend a user
+   * Only accessible to admins
+   */
+  @Post('users/:userId/suspend')
+  @SensitiveAction() // Sensitive: Account suspension blocks user access
+  @ApiOperation({
+    summary: 'Suspend user (admin only)',
+    description: `
+      Suspend a user account temporarily or indefinitely. This action:
+      - Sets status to SUSPENDED
+      - Blocks user from logging in
+      - Blocks user from performing any actions
+      - Records suspension reason and optional expiry date
+      - Records the admin who suspended the user
+      - Creates an audit log entry
+
+      Suspension can be:
+      - Temporary: Provide suspendUntil date
+      - Indefinite: Omit suspendUntil
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User suspended successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - missing reason or trying to suspend banned user',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+  })
+  async suspendUser(
+    @Param('userId') userId: string,
+    @Body() dto: SuspendUserDto,
+    @Request() req: any,
+  ) {
+    const adminUserId = req.user?.userId;
+    const suspendUntil = dto.suspendUntil ? new Date(dto.suspendUntil) : undefined;
+    return this.adminUsersService.suspendUser(
+      userId,
+      adminUserId,
+      dto.reason,
+      suspendUntil,
+      req,
+    );
+  }
+
+  /**
+   * Unsuspend a user
+   * Only accessible to admins
+   */
+  @Post('users/:userId/unsuspend')
+  @SensitiveAction() // Sensitive: Restoring user access
+  @ApiOperation({
+    summary: 'Unsuspend user (admin only)',
+    description: `
+      Remove suspension from a user account. This action:
+      - Sets status back to ACTIVE
+      - Restores user login and action permissions
+      - Clears suspension reason and expiry date
+      - Creates an audit log entry
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User unsuspended successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - user is not suspended',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+  })
+  async unsuspendUser(
+    @Param('userId') userId: string,
+    @Request() req: any,
+  ) {
+    const adminUserId = req.user?.userId;
+    return this.adminUsersService.unsuspendUser(userId, adminUserId, req);
+  }
+
+  /**
+   * Ban a user permanently
+   * Only accessible to admins
+   */
+  @Post('users/:userId/ban')
+  @SensitiveAction() // Sensitive: Permanent account ban
+  @ApiOperation({
+    summary: 'Ban user permanently (admin only)',
+    description: `
+      Ban a user account permanently. This action:
+      - Sets status to BANNED
+      - Permanently blocks user from logging in
+      - Permanently blocks user from performing any actions
+      - Records ban reason and timestamp
+      - Records the admin who banned the user
+      - Creates an audit log entry
+
+      Note: Bans are permanent and cannot be automatically lifted.
+      Use unsuspend endpoint to restore access if needed.
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User banned successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - missing reason',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+  })
+  async banUser(
+    @Param('userId') userId: string,
+    @Body() dto: BanUserDto,
+    @Request() req: any,
+  ) {
+    const adminUserId = req.user?.userId;
+    return this.adminUsersService.banUser(userId, adminUserId, dto.reason, req);
   }
 
   /**
