@@ -31,6 +31,7 @@ import { GetUsersQueryDto } from './dto/get-users-query.dto';
 import { PaginatedUsersResponseDto } from './dto/user-response.dto';
 import { DetailedUserResponseDto } from './dto/detailed-user-response.dto';
 import { SuspendUserDto, BanUserDto } from './dto/suspend-user.dto';
+import { MergeUsersDto, MergeUsersResponseDto } from './dto/merge-users.dto';
 
 /**
  * Admin Controller
@@ -339,6 +340,72 @@ export class AdminController {
   ) {
     const adminUserId = req.user?.userId;
     return this.adminUsersService.banUser(userId, adminUserId, dto.reason, req);
+  }
+
+  /**
+   * Merge two user accounts
+   * Only accessible to admins
+   */
+  @Post('users/merge')
+  @SensitiveAction() // Sensitive: Permanent data transfer and user deactivation
+  @ApiOperation({
+    summary: 'Merge two user accounts (admin only)',
+    description: `
+      Merge two user accounts by transferring all data from source to target user.
+
+      **WHAT GETS TRANSFERRED:**
+      - All profiles (user_id updated)
+      - All reviews given (reviewer_id updated)
+      - All reviews received (reviewee_id updated)
+      - All jobs posted (employer_id updated)
+      - All matches (via profiles - automatically transferred)
+      - All availabilities (via profiles - automatically transferred)
+
+      **WHAT HAPPENS TO SOURCE USER:**
+      - Set to inactive (is_active = false)
+      - Status set to SUSPENDED
+      - Suspend reason set to "Merged into user {targetId}"
+
+      **SAFETY CHECKS:**
+      - Both users must exist
+      - Cannot merge user with itself
+      - Target must be active
+      - Source cannot be admin (security)
+      - All operations in atomic transaction
+
+      **DRY RUN MODE:**
+      - Set dryRun: true to preview changes without executing
+      - Returns what would be transferred
+
+      **AUDIT LOGGING:**
+      - Complete before/after state captured
+      - Transfer summary recorded
+      - Action: "users.merged"
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Users merged successfully',
+    type: MergeUsersResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - validation failed',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Source or target user not found',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict - transaction failed',
+  })
+  async mergeUsers(
+    @Body() dto: MergeUsersDto,
+    @Request() req: any,
+  ): Promise<MergeUsersResponseDto> {
+    const adminUserId = req.user?.userId;
+    return this.adminUsersService.mergeUsers(dto, adminUserId, req);
   }
 
   /**

@@ -1,10 +1,12 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Brackets } from 'typeorm';
+import { Repository, Brackets, DataSource } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { UserStatus } from '../../../common/enums/user-status.enum';
+import { Role } from '../../../common/enums/role.enum';
 import { AuditLogService } from '../../audit-log/audit-log.service';
 import { GetUsersQueryDto } from '../dto/get-users-query.dto';
+import { MergeUsersDto, MergeUsersResponseDto } from '../dto/merge-users.dto';
 import {
   PaginatedUsersResponseDto,
   UserResponseDto,
@@ -36,6 +38,7 @@ export class AdminUsersService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly auditLogService: AuditLogService,
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -1102,5 +1105,359 @@ export class AdminUsersService {
     }
 
     return { allowed: true };
+  }
+
+  /**
+   * Merge two user accounts
+   * Transfers all data from source user to target user, then deactivates source
+   *
+   * SAFE MERGE STRATEGY:
+   * 1. Validation: Check both users exist, not same, target active, source not admin
+   * 2. Pre-check: Count data to transfer
+   * 3. Transaction: Transfer all ownership in atomic operation
+   * 4. Deactivate source user
+   * 5. Audit log with complete details
+   * 6. Dry run mode: Preview without execution
+   */
+  async mergeUsers(
+    dto: MergeUsersDto,
+    adminUserId: string,
+    request?: Request,
+  ): Promise<MergeUsersResponseDto> {
+    const { sourceUserId, targetUserId, reason, dryRun = false } = dto;
+
+    // ========== SAFETY CHECKS ==========
+    this.logger.log(
+      `[Merge Users] Starting merge: ${sourceUserId} → ${targetUserId} (dryRun: ${dryRun})`,
+    );
+
+    // 1. Check users exist
+    const [sourceUser, targetUser] = await Promise.all([
+      this.userRepository.findOne({
+        where: { id: sourceUserId },
+        relations: ['profiles'],
+      }),
+      this.userRepository.findOne({
+        where: { id: targetUserId },
+        relations: ['profiles'],
+      }),
+    ]);
+
+    if (!sourceUser) {
+      throw new NotFoundException(`Source user ${sourceUserId} not found`);
+    }
+
+    if (!targetUser) {
+      throw new NotFoundException(`Target user ${targetUserId} not found`);
+    }
+
+    // 2. Prevent self-merge
+    if (sourceUserId === targetUserId) {
+      throw new BadRequestException('Cannot merge user with itself');
+    }
+
+    // 3. Target must be active
+    if (!targetUser.isActive) {
+      throw new BadRequestException(
+        'Target user must be active (cannot merge into inactive account)',
+      );
+    }
+
+    if (targetUser.status !== UserStatus.ACTIVE) {
+      throw new BadRequestException(
+        `Target user must have ACTIVE status (current: ${targetUser.status})`,
+      );
+    }
+
+    // 4. Prevent merging admin accounts (too risky)
+    if (sourceUser.role === Role.ADMIN) {
+      throw new BadRequestException(
+        'Cannot merge admin accounts for security reasons',
+      );
+    }
+
+    // 5. Warn if target is admin (creating super-admin)
+    const warnings: string[] = [];
+    if (targetUser.role === Role.ADMIN) {
+      warnings.push(
+        'Warning: Target is admin - this will grant admin privileges to all source user data',
+      );
+    }
+
+    // ========== COUNT DATA TO TRANSFER ==========
+    this.logger.log(`[Merge Users] Counting data to transfer...`);
+
+    const profileIds = sourceUser.profiles?.map((p) => p.id) || [];
+
+    const counts = await this.countUserData(sourceUserId, profileIds);
+
+    this.logger.log(
+      `[Merge Users] Data to transfer: ${counts.profiles} profiles, ${counts.reviewsGiven} reviews given, ${counts.reviewsReceived} reviews received, ${counts.matches} matches, ${counts.jobs} jobs, ${counts.availabilities} availabilities`,
+    );
+
+    // ========== DRY RUN MODE ==========
+    if (dryRun) {
+      this.logger.log(`[Merge Users] DRY RUN - No changes made`);
+
+      return {
+        success: true,
+        message: `DRY RUN: Would transfer ${counts.profiles} profiles, ${counts.reviewsGiven + counts.reviewsReceived} reviews, ${counts.matches} matches, ${counts.jobs} jobs, ${counts.availabilities} availabilities from ${sourceUser.email || sourceUser.phone} to ${targetUser.email || targetUser.phone}`,
+        transferSummary: {
+          profilesTransferred: counts.profiles,
+          reviewsGivenTransferred: counts.reviewsGiven,
+          reviewsReceivedTransferred: counts.reviewsReceived,
+          matchesTransferred: counts.matches,
+          jobsTransferred: counts.jobs,
+          availabilitiesTransferred: counts.availabilities,
+        },
+        sourceUser: {
+          id: sourceUser.id,
+          email: sourceUser.email,
+          phone: sourceUser.phone,
+          isActive: sourceUser.isActive,
+          status: sourceUser.status,
+        },
+        targetUser: {
+          id: targetUser.id,
+          email: targetUser.email,
+          phone: targetUser.phone,
+          profilesCount: (targetUser.profiles?.length || 0) + counts.profiles,
+        },
+        warnings,
+      };
+    }
+
+    // ========== EXECUTE MERGE IN TRANSACTION ==========
+    this.logger.log(`[Merge Users] Executing merge in transaction...`);
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Capture before state for audit
+      const beforeState = {
+        source: {
+          id: sourceUser.id,
+          email: sourceUser.email,
+          phone: sourceUser.phone,
+          isActive: sourceUser.isActive,
+          status: sourceUser.status,
+          profilesCount: profileIds.length,
+        },
+        target: {
+          id: targetUser.id,
+          email: targetUser.email,
+          phone: targetUser.phone,
+          profilesCount: targetUser.profiles?.length || 0,
+        },
+      };
+
+      // 1. Transfer profiles
+      if (profileIds.length > 0) {
+        await queryRunner.manager.query(
+          `UPDATE profiles SET user_id = $1 WHERE user_id = $2`,
+          [targetUserId, sourceUserId],
+        );
+        this.logger.log(`[Merge Users] Transferred ${profileIds.length} profiles`);
+      }
+
+      // 2. Transfer reviews given (as reviewer)
+      await queryRunner.manager.query(
+        `UPDATE reviews SET reviewer_id = $1 WHERE reviewer_id = $2`,
+        [targetUserId, sourceUserId],
+      );
+      this.logger.log(
+        `[Merge Users] Transferred ${counts.reviewsGiven} reviews (as reviewer)`,
+      );
+
+      // 3. Transfer reviews received (as reviewee)
+      await queryRunner.manager.query(
+        `UPDATE reviews SET reviewee_id = $1 WHERE reviewee_id = $2`,
+        [targetUserId, sourceUserId],
+      );
+      this.logger.log(
+        `[Merge Users] Transferred ${counts.reviewsReceived} reviews (as reviewee)`,
+      );
+
+      // 4. Transfer jobs (as employer)
+      await queryRunner.manager.query(
+        `UPDATE jobs SET employer_id = $1 WHERE employer_id = $2`,
+        [targetUserId, sourceUserId],
+      );
+      this.logger.log(`[Merge Users] Transferred ${counts.jobs} jobs`);
+
+      // Note: Matches are linked via profiles, so they're automatically transferred
+      // Availabilities are also linked via profiles
+
+      // 5. Deactivate source user
+      await queryRunner.manager.query(
+        `UPDATE users
+         SET is_active = false,
+             status = $1,
+             suspend_reason = $2
+         WHERE id = $3`,
+        [
+          UserStatus.SUSPENDED,
+          `Merged into user ${targetUserId} (${targetUser.email || targetUser.phone}) - Reason: ${reason}`,
+          sourceUserId,
+        ],
+      );
+      this.logger.log(`[Merge Users] Deactivated source user ${sourceUserId}`);
+
+      // Commit transaction
+      await queryRunner.commitTransaction();
+      this.logger.log(`[Merge Users] Transaction committed successfully`);
+
+      // Capture after state
+      const afterState = {
+        source: {
+          id: sourceUser.id,
+          isActive: false,
+          status: UserStatus.SUSPENDED,
+          suspendReason: `Merged into user ${targetUserId}`,
+        },
+        target: {
+          id: targetUser.id,
+          profilesCount: (targetUser.profiles?.length || 0) + profileIds.length,
+        },
+        transferred: {
+          profiles: profileIds.length,
+          reviewsGiven: counts.reviewsGiven,
+          reviewsReceived: counts.reviewsReceived,
+          matches: counts.matches,
+          jobs: counts.jobs,
+          availabilities: counts.availabilities,
+        },
+      };
+
+      // Create audit log
+      const auditLog = await this.auditLogService.create({
+        actorUserId: adminUserId,
+        action: 'users.merged',
+        entityType: 'user',
+        entityId: sourceUserId,
+        beforeJson: beforeState,
+        afterJson: afterState,
+        ...(request ? this.auditLogService.extractRequestMetadata(request) : {}),
+        metadata: {
+          description: 'Admin merged two user accounts',
+          reason,
+          sourceUserId,
+          targetUserId,
+          transferSummary: {
+            profiles: profileIds.length,
+            reviewsGiven: counts.reviewsGiven,
+            reviewsReceived: counts.reviewsReceived,
+            matches: counts.matches,
+            jobs: counts.jobs,
+            availabilities: counts.availabilities,
+          },
+        },
+      });
+
+      this.logger.log(
+        `[Merge Users] Merge completed successfully: ${sourceUserId} → ${targetUserId}`,
+      );
+
+      return {
+        success: true,
+        message: `Successfully merged ${sourceUser.email || sourceUser.phone} into ${targetUser.email || targetUser.phone}. Source user has been deactivated.`,
+        transferSummary: {
+          profilesTransferred: profileIds.length,
+          reviewsGivenTransferred: counts.reviewsGiven,
+          reviewsReceivedTransferred: counts.reviewsReceived,
+          matchesTransferred: counts.matches,
+          jobsTransferred: counts.jobs,
+          availabilitiesTransferred: counts.availabilities,
+        },
+        sourceUser: {
+          id: sourceUser.id,
+          email: sourceUser.email,
+          phone: sourceUser.phone,
+          isActive: false,
+          status: UserStatus.SUSPENDED,
+        },
+        targetUser: {
+          id: targetUser.id,
+          email: targetUser.email,
+          phone: targetUser.phone,
+          profilesCount: (targetUser.profiles?.length || 0) + profileIds.length,
+        },
+        auditLogId: auditLog?.id,
+        warnings,
+      };
+    } catch (error) {
+      // Rollback on error
+      await queryRunner.rollbackTransaction();
+      this.logger.error(
+        `[Merge Users] Transaction failed, rolled back: ${error.message}`,
+        error.stack,
+      );
+      throw new ConflictException(
+        `Failed to merge users: ${error.message}`,
+      );
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Count all data owned by a user
+   */
+  private async countUserData(
+    userId: string,
+    profileIds: string[],
+  ): Promise<{
+    profiles: number;
+    reviewsGiven: number;
+    reviewsReceived: number;
+    matches: number;
+    jobs: number;
+    availabilities: number;
+  }> {
+    const profileIdsArray = profileIds.length > 0 ? profileIds : [''];
+
+    const [
+      reviewsGivenResult,
+      reviewsReceivedResult,
+      matchesResult,
+      jobsResult,
+      availabilitiesResult,
+    ] = await Promise.all([
+      this.userRepository.query(
+        `SELECT COUNT(*) as count FROM reviews WHERE reviewer_id = $1`,
+        [userId],
+      ),
+      this.userRepository.query(
+        `SELECT COUNT(*) as count FROM reviews WHERE reviewee_id = $1`,
+        [userId],
+      ),
+      profileIds.length > 0
+        ? this.userRepository.query(
+            `SELECT COUNT(*) as count FROM matches WHERE candidate_id = ANY($1)`,
+            [profileIdsArray],
+          )
+        : Promise.resolve([{ count: '0' }]),
+      this.userRepository.query(
+        `SELECT COUNT(*) as count FROM jobs WHERE employer_id = $1`,
+        [userId],
+      ),
+      profileIds.length > 0
+        ? this.userRepository.query(
+            `SELECT COUNT(*) as count FROM availabilities WHERE profile_id = ANY($1)`,
+            [profileIdsArray],
+          )
+        : Promise.resolve([{ count: '0' }]),
+    ]);
+
+    return {
+      profiles: profileIds.length,
+      reviewsGiven: parseInt(reviewsGivenResult[0]?.count || '0', 10),
+      reviewsReceived: parseInt(reviewsReceivedResult[0]?.count || '0', 10),
+      matches: parseInt(matchesResult[0]?.count || '0', 10),
+      jobs: parseInt(jobsResult[0]?.count || '0', 10),
+      availabilities: parseInt(availabilitiesResult[0]?.count || '0', 10),
+    };
   }
 }
