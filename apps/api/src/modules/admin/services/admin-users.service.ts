@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
@@ -9,6 +9,16 @@ import {
   UserStatsDto,
   UserProfileSummaryDto,
 } from '../dto/user-response.dto';
+import {
+  DetailedUserResponseDto,
+  DetailedProfileDto,
+  AvailabilityDto,
+  JobSummaryDto,
+  MatchSummaryDto,
+  ReviewDto,
+  AuditLogDto,
+  DetailedStatsDto,
+} from '../dto/detailed-user-response.dto';
 
 /**
  * Admin Users Service
@@ -278,6 +288,424 @@ export class AdminUsersService {
       hasVehicle: profile.hasVehicle,
       skills: profile.skills || [],
       cultures: profile.cultures || [],
+    };
+  }
+
+  /**
+   * Get detailed user by ID
+   */
+  async getUserById(userId: string): Promise<DetailedUserResponseDto> {
+    // Get user with profiles
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['profiles'],
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    // Get profile IDs for related queries
+    const profileIds = user.profiles?.map((p) => p.id) || [];
+
+    // Fetch all related data in parallel
+    const [
+      profiles,
+      availabilities,
+      jobs,
+      matches,
+      reviews,
+      auditLogs,
+      stats,
+    ] = await Promise.all([
+      this.getUserProfiles(userId),
+      this.getUserAvailabilities(profileIds),
+      this.getUserJobs(userId, user.role),
+      this.getUserMatches(profileIds, userId, user.role),
+      this.getUserReviews(userId),
+      this.getUserAuditLogs(userId),
+      this.getUserDetailedStats(userId, profileIds),
+    ]);
+
+    // Map to detailed DTO
+    return {
+      id: user.id,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      isActive: user.isActive,
+      isEmailVerified: user.isEmailVerified || false,
+      isPhoneVerified: user.isPhoneVerified || false,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      avatarUrl: user.avatarUrl,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      lastLoginAt: user.lastLoginAt,
+      lastSeenAt: user.lastSeenAt,
+      profiles,
+      availabilities,
+      jobs,
+      matches,
+      reviews,
+      auditLogs,
+      stats,
+    };
+  }
+
+  /**
+   * Get user profiles with full details
+   */
+  private async getUserProfiles(userId: string): Promise<DetailedProfileDto[]> {
+    const query = `
+      SELECT
+        p.id,
+        p.type,
+        p.first_name,
+        p.last_name,
+        p.team_name,
+        p.bio,
+        p.experience_years,
+        p.has_vehicle,
+        p.skills,
+        p.cultures,
+        p.location_address,
+        p.location_city,
+        p.location_region,
+        p.location_lat,
+        p.location_lng,
+        p.created_at,
+        p.updated_at
+      FROM profiles p
+      WHERE p.user_id = $1
+      ORDER BY p.created_at DESC
+    `;
+
+    const results = await this.userRepository.query(query, [userId]);
+
+    return results.map((row: any) => ({
+      id: row.id,
+      type: row.type,
+      firstName: row.first_name,
+      lastName: row.last_name,
+      teamName: row.team_name,
+      bio: row.bio,
+      experienceYears: row.experience_years,
+      hasVehicle: row.has_vehicle,
+      skills: row.skills || [],
+      cultures: row.cultures || [],
+      location: {
+        address: row.location_address,
+        city: row.location_city,
+        region: row.location_region,
+        coordinates: row.location_lat && row.location_lng
+          ? { lat: parseFloat(row.location_lat), lng: parseFloat(row.location_lng) }
+          : undefined,
+      },
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  }
+
+  /**
+   * Get user availabilities (recent ones)
+   */
+  private async getUserAvailabilities(profileIds: string[]): Promise<AvailabilityDto[]> {
+    if (profileIds.length === 0) return [];
+
+    const query = `
+      SELECT
+        a.id,
+        a.profile_id,
+        a.start_date,
+        a.end_date,
+        a.status,
+        a.created_at
+      FROM availabilities a
+      WHERE a.profile_id = ANY($1)
+      AND a.end_date >= CURRENT_DATE - INTERVAL '30 days'
+      ORDER BY a.start_date DESC
+      LIMIT 10
+    `;
+
+    const results = await this.userRepository.query(query, [profileIds]);
+
+    return results.map((row: any) => ({
+      id: row.id,
+      profileId: row.profile_id,
+      startDate: row.start_date,
+      endDate: row.end_date,
+      status: row.status,
+      createdAt: row.created_at,
+    }));
+  }
+
+  /**
+   * Get user jobs (if employer)
+   */
+  private async getUserJobs(userId: string, role: string): Promise<JobSummaryDto[]> {
+    if (role !== 'employer' && role !== 'admin') return [];
+
+    const query = `
+      SELECT
+        j.id,
+        j.title,
+        j.culture,
+        j.status,
+        j.start_date,
+        j.end_date,
+        j.workers_needed,
+        j.created_at
+      FROM jobs j
+      WHERE j.employer_id = $1
+      ORDER BY j.created_at DESC
+      LIMIT 20
+    `;
+
+    const results = await this.userRepository.query(query, [userId]);
+
+    return results.map((row: any) => ({
+      id: row.id,
+      title: row.title,
+      culture: row.culture,
+      status: row.status,
+      startDate: row.start_date,
+      endDate: row.end_date,
+      workersNeeded: row.workers_needed,
+      createdAt: row.created_at,
+    }));
+  }
+
+  /**
+   * Get user matches (as candidate or employer)
+   */
+  private async getUserMatches(
+    profileIds: string[],
+    userId: string,
+    role: string,
+  ): Promise<MatchSummaryDto[]> {
+    if (profileIds.length === 0 && role !== 'employer') return [];
+
+    // Build query based on role
+    let query: string;
+    let params: any[];
+
+    if (role === 'employer' || role === 'admin') {
+      // Get matches for jobs posted by this user
+      query = `
+        SELECT
+          m.id,
+          m.status,
+          m.match_score,
+          m.created_at,
+          m.confirmed_at,
+          m.completed_at,
+          j.id as job_id,
+          j.title as job_title,
+          j.culture as job_culture,
+          p.id as candidate_id,
+          COALESCE(p.team_name, CONCAT(p.first_name, ' ', p.last_name)) as candidate_name,
+          p.type as candidate_type
+        FROM matches m
+        INNER JOIN jobs j ON j.id = m.job_id
+        INNER JOIN profiles p ON p.id = m.candidate_id
+        WHERE j.employer_id = $1
+        ORDER BY m.created_at DESC
+        LIMIT 30
+      `;
+      params = [userId];
+    } else {
+      // Get matches where user is the candidate
+      query = `
+        SELECT
+          m.id,
+          m.status,
+          m.match_score,
+          m.created_at,
+          m.confirmed_at,
+          m.completed_at,
+          j.id as job_id,
+          j.title as job_title,
+          j.culture as job_culture,
+          p.id as candidate_id,
+          COALESCE(p.team_name, CONCAT(p.first_name, ' ', p.last_name)) as candidate_name,
+          p.type as candidate_type
+        FROM matches m
+        INNER JOIN jobs j ON j.id = m.job_id
+        INNER JOIN profiles p ON p.id = m.candidate_id
+        WHERE m.candidate_id = ANY($1)
+        ORDER BY m.created_at DESC
+        LIMIT 30
+      `;
+      params = [profileIds];
+    }
+
+    const results = await this.userRepository.query(query, params);
+
+    return results.map((row: any) => ({
+      id: row.id,
+      job: {
+        id: row.job_id,
+        title: row.job_title,
+        culture: row.job_culture,
+      },
+      candidate: {
+        id: row.candidate_id,
+        name: row.candidate_name,
+        type: row.candidate_type,
+      },
+      status: row.status,
+      matchScore: row.match_score,
+      createdAt: row.created_at,
+      confirmedAt: row.confirmed_at,
+      completedAt: row.completed_at,
+    }));
+  }
+
+  /**
+   * Get reviews received by user
+   */
+  private async getUserReviews(userId: string): Promise<ReviewDto[]> {
+    const query = `
+      SELECT
+        r.id,
+        r.rating,
+        r.comment,
+        r.job_id,
+        r.created_at,
+        u.id as reviewer_id,
+        COALESCE(u.email, u.phone) as reviewer_name,
+        j.title as job_title
+      FROM reviews r
+      INNER JOIN users u ON u.id = r.reviewer_id
+      LEFT JOIN jobs j ON j.id = r.job_id
+      WHERE r.reviewee_id = $1
+      ORDER BY r.created_at DESC
+      LIMIT 50
+    `;
+
+    const results = await this.userRepository.query(query, [userId]);
+
+    return results.map((row: any) => ({
+      id: row.id,
+      reviewer: {
+        id: row.reviewer_id,
+        name: row.reviewer_name,
+      },
+      rating: parseFloat(row.rating),
+      comment: row.comment,
+      jobId: row.job_id,
+      jobTitle: row.job_title,
+      createdAt: row.created_at,
+    }));
+  }
+
+  /**
+   * Get audit logs for user
+   */
+  private async getUserAuditLogs(userId: string): Promise<AuditLogDto[]> {
+    const query = `
+      SELECT
+        a.id,
+        a.action,
+        a.actor_user_id,
+        a.before_json,
+        a.after_json,
+        a.ip_address,
+        a.metadata,
+        a.created_at,
+        u.email as actor_email,
+        u.phone as actor_phone
+      FROM audit_logs a
+      LEFT JOIN users u ON u.id = a.actor_user_id
+      WHERE a.entity_type = 'user' AND a.entity_id = $1
+      ORDER BY a.created_at DESC
+      LIMIT 50
+    `;
+
+    const results = await this.userRepository.query(query, [userId]);
+
+    return results.map((row: any) => ({
+      id: row.id,
+      action: row.action,
+      actor: {
+        id: row.actor_user_id,
+        email: row.actor_email,
+        phone: row.actor_phone,
+      },
+      beforeJson: row.before_json,
+      afterJson: row.after_json,
+      ipAddress: row.ip_address,
+      metadata: row.metadata,
+      createdAt: row.created_at,
+    }));
+  }
+
+  /**
+   * Get detailed statistics for user
+   */
+  private async getUserDetailedStats(
+    userId: string,
+    profileIds: string[],
+  ): Promise<DetailedStatsDto> {
+    const query = `
+      SELECT
+        -- Rating stats
+        COALESCE(AVG(r.rating), 0) as rating_avg,
+        COUNT(DISTINCT r.id) as reviews_count,
+
+        -- Match stats
+        COUNT(DISTINCT m.id) as matches_total,
+        COUNT(DISTINCT CASE WHEN m.status = 'pending' THEN m.id END) as matches_pending,
+        COUNT(DISTINCT CASE WHEN m.status = 'confirmed' THEN m.id END) as matches_confirmed,
+        COUNT(DISTINCT CASE WHEN m.status = 'completed' THEN m.id END) as matches_completed,
+        COUNT(DISTINCT CASE WHEN m.status = 'cancelled' THEN m.id END) as matches_cancelled,
+
+        -- Jobs posted (if employer)
+        COUNT(DISTINCT j.id) as jobs_posted
+
+      FROM users u
+      LEFT JOIN profiles p ON p.user_id = u.id
+      LEFT JOIN matches m ON m.candidate_id = p.id
+      LEFT JOIN reviews r ON r.reviewee_id = u.id
+      LEFT JOIN jobs j ON j.employer_id = u.id
+      WHERE u.id = $1
+      GROUP BY u.id
+    `;
+
+    const results = await this.userRepository.query(query, [userId]);
+
+    if (results.length === 0) {
+      throw new NotFoundException(`User stats not found for ID ${userId}`);
+    }
+
+    const row = results[0];
+
+    // Get user for account age and last seen
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['createdAt', 'lastSeenAt', 'lastLoginAt'],
+    });
+
+    const accountAgeDays = user
+      ? Math.floor((Date.now() - user.createdAt.getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+
+    return {
+      ratingAvg: parseFloat(row.rating_avg) || 0,
+      reviewsCount: parseInt(row.reviews_count, 10) || 0,
+      missionsCount: parseInt(row.matches_completed, 10) || 0,
+      matchesTotal: parseInt(row.matches_total, 10) || 0,
+      matchesByStatus: {
+        pending: parseInt(row.matches_pending, 10) || 0,
+        confirmed: parseInt(row.matches_confirmed, 10) || 0,
+        completed: parseInt(row.matches_completed, 10) || 0,
+        cancelled: parseInt(row.matches_cancelled, 10) || 0,
+      },
+      jobsPosted: parseInt(row.jobs_posted, 10) || 0,
+      lastSeenAt: user?.lastSeenAt,
+      lastLoginAt: user?.lastLoginAt,
+      accountAgeDays,
     };
   }
 }

@@ -29,6 +29,7 @@ import { AdminFailureInterceptor } from './interceptors/admin-failure.intercepto
 import { SensitiveAction } from './decorators/sensitive-action.decorator';
 import { GetUsersQueryDto } from './dto/get-users-query.dto';
 import { PaginatedUsersResponseDto } from './dto/user-response.dto';
+import { DetailedUserResponseDto } from './dto/detailed-user-response.dto';
 
 /**
  * Admin Controller
@@ -114,6 +115,37 @@ export class AdminController {
   })
   async getUsers(@Query() query: GetUsersQueryDto) {
     return this.adminUsersService.getUsers(query);
+  }
+
+  /**
+   * Get detailed user information by ID
+   * Only accessible to admins
+   */
+  @Get('users/:userId')
+  @ApiOperation({
+    summary: 'Get detailed user by ID (admin only)',
+    description: `
+      Get comprehensive information about a specific user including:
+      - Basic user information and profiles
+      - Recent availabilities (last 30 days, up to 10)
+      - Related jobs (if employer, up to 20)
+      - Related matches (up to 30)
+      - Reviews received (up to 50)
+      - Audit logs (up to 50)
+      - Detailed statistics (ratings, missions, matches by status)
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Detailed user information',
+    type: DetailedUserResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+  })
+  async getUserById(@Param('userId') userId: string) {
+    return this.adminUsersService.getUserById(userId);
   }
 
   /**
