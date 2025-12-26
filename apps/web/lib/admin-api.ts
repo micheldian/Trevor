@@ -4,6 +4,8 @@
  * Client for making authenticated requests to admin endpoints
  */
 
+import { tokenStorage } from './auth';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 interface ApiResponse<T> {
@@ -20,10 +22,8 @@ async function apiFetch<T>(
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
   try {
-    // Get token from storage (you'll need to implement auth)
-    const token = typeof window !== 'undefined'
-      ? localStorage.getItem('admin_token')
-      : null;
+    // Get token from auth storage
+    const token = tokenStorage.getToken();
 
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
