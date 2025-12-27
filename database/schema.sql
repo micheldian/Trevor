@@ -653,7 +653,8 @@ CREATE TRIGGER update_job_workers_matched_after_match
 -- ====================================
 
 -- Vue: Profils complets (user + profile)
--- Note: Explicit column list to avoid dependency issues with PostGIS columns
+-- Note: Only includes columns from initial schema (before migrations)
+-- This view will be recreated by migrations as new columns are added
 CREATE OR REPLACE VIEW profiles_full AS
 SELECT
     p.id,
@@ -674,14 +675,6 @@ SELECT
     p.rating_count,
     p.is_active,
     p.is_complete,
-    p.has_vehicle,
-    p.latitude,
-    p.longitude,
-    p.missions_count,
-    p.completed_missions_count,
-    p.no_show_count,
-    p.cancelled_count,
-    p.reliability_score,
     p.created_at,
     p.updated_at,
     -- User columns
