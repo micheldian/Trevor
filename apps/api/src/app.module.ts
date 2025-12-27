@@ -12,6 +12,7 @@ import { MatchesModule } from './modules/matches/matches.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
+import { ReportsModule } from './modules/reports/reports.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
@@ -76,6 +77,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     ReviewsModule,
     AdminModule,
     AuditLogModule,
+    ReportsModule,
   ],
   providers: [
     {

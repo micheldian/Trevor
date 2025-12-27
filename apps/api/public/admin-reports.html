@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trevor Admin - Reports Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 24px;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 24px;
+            font-size: 28px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-card.open {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .stat-card.in-review {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .stat-card.closed {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+
+        .stat-card h3 {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            opacity: 0.9;
+        }
+
+        .stat-card .number {
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        .filters {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .filter-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: #555;
+        }
+
+        select, input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            background: white;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .reports-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 24px;
+        }
+
+        .reports-table th {
+            background: #f8f9fa;
+            text-align: left;
+            padding: 12px;
+            font-weight: 600;
+            font-size: 13px;
+            color: #555;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .reports-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 14px;
+        }
+
+        .reports-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .badge.open {
+            background: #fee;
+            color: #c00;
+        }
+
+        .badge.in-review {
+            background: #def;
+            color: #07c;
+        }
+
+        .badge.closed {
+            background: #dfd;
+            color: #060;
+        }
+
+        .badge.dismissed {
+            background: #eee;
+            color: #666;
+        }
+
+        .badge.spam { background: #ffe4e1; color: #d32f2f; }
+        .badge.inappropriate { background: #fff3e0; color: #f57c00; }
+        .badge.harassment { background: #ffebee; color: #c62828; }
+        .badge.fake { background: #e8f5e9; color: #388e3c; }
+        .badge.scam { background: #fce4ec; color: #c2185b; }
+        .badge.other { background: #f3e5f5; color: #7b1fa2; }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .btn-view {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-close {
+            background: #43e97b;
+            color: white;
+        }
+
+        .btn-dismiss {
+            background: #999;
+            color: white;
+        }
+
+        .btn-delete {
+            background: #f5576c;
+            color: white;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 24px;
+        }
+
+        .pagination button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pagination button.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 24px;
+            border-radius: 8px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .error {
+            background: #fee;
+            color: #c00;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Reports Management</h1>
+
+        <div id="stats" class="stats">
+            <div class="stat-card">
+                <h3>Total Reports</h3>
+                <div class="number" id="stat-total">-</div>
+            </div>
+            <div class="stat-card open">
+                <h3>Open</h3>
+                <div class="number" id="stat-open">-</div>
+            </div>
+            <div class="stat-card in-review">
+                <h3>In Review</h3>
+                <div class="number" id="stat-in-review">-</div>
+            </div>
+            <div class="stat-card closed">
+                <h3>Closed</h3>
+                <div class="number" id="stat-closed">-</div>
+            </div>
+        </div>
+
+        <div class="filters">
+            <div class="filter-group">
+                <label>Status</label>
+                <select id="filter-status">
+                    <option value="">All</option>
+                    <option value="open">Open</option>
+                    <option value="in_review">In Review</option>
+                    <option value="closed">Closed</option>
+                    <option value="dismissed">Dismissed</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Target Type</label>
+                <select id="filter-target-type">
+                    <option value="">All</option>
+                    <option value="user">User</option>
+                    <option value="review">Review</option>
+                    <option value="job">Job</option>
+                    <option value="profile">Profile</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Reason</label>
+                <select id="filter-reason">
+                    <option value="">All</option>
+                    <option value="spam">Spam</option>
+                    <option value="inappropriate">Inappropriate</option>
+                    <option value="harassment">Harassment</option>
+                    <option value="fake">Fake</option>
+                    <option value="scam">Scam</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+
+        <div id="loading" class="loading">Loading reports...</div>
+
+        <table id="reports-table" class="reports-table" style="display: none;">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Reporter</th>
+                    <th>Target</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="reports-body"></tbody>
+        </table>
+
+        <div id="pagination" class="pagination"></div>
+    </div>
+
+    <!-- Modal for report details -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Report Details</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = window.location.origin;
+        let token = localStorage.getItem('admin_token');
+        let currentPage = 1;
+        let filters = {};
+
+        // Redirect to login if no token
+        if (!token) {
+            alert('Please login first');
+            window.location.href = '/admin/login';
+        }
+
+        // Load stats
+        async function loadStats() {
+            try {
+                const res = await fetch(`${API_URL}/admin/reports-stats`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const stats = await res.json();
+                document.getElementById('stat-total').textContent = stats.total || 0;
+                document.getElementById('stat-open').textContent = stats.byStatus?.open || 0;
+                document.getElementById('stat-in-review').textContent = stats.byStatus?.in_review || 0;
+                document.getElementById('stat-closed').textContent = (stats.byStatus?.closed || 0) + (stats.byStatus?.dismissed || 0);
+            } catch (err) {
+                console.error('Failed to load stats:', err);
+            }
+        }
+
+        // Load reports
+        async function loadReports() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('reports-table').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
+
+            const params = new URLSearchParams({
+                page: currentPage,
+                limit: 20,
+                ...filters
+            });
+
+            try {
+                const res = await fetch(`${API_URL}/admin/reports?${params}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!res.ok) throw new Error('Failed to load reports');
+
+                const data = await res.json();
+                displayReports(data.data);
+                displayPagination(data.meta);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('reports-table').style.display = 'table';
+            } catch (err) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').textContent = err.message;
+                document.getElementById('error').style.display = 'block';
+            }
+        }
+
+        function displayReports(reports) {
+            const tbody = document.getElementById('reports-body');
+            tbody.innerHTML = reports.map(report => `
+                <tr>
+                    <td>${new Date(report.createdAt).toLocaleDateString()}</td>
+                    <td>${report.reporter?.email || 'Unknown'}</td>
+                    <td>
+                        <div>${report.targetType}</div>
+                        <small style="color: #999;">${report.targetId.substring(0, 8)}...</small>
+                    </td>
+                    <td><span class="badge ${report.reason}">${report.reason}</span></td>
+                    <td><span class="badge ${report.status}">${report.status.replace('_', ' ')}</span></td>
+                    <td class="actions">
+                        <button class="btn btn-view" onclick="viewReport('${report.id}')">View</button>
+                        ${report.status === 'open' ? `
+                            <button class="btn btn-close" onclick="updateStatus('${report.id}', 'closed')">Close</button>
+                            <button class="btn btn-dismiss" onclick="updateStatus('${report.id}', 'dismissed')">Dismiss</button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function displayPagination(meta) {
+            const pagination = document.getElementById('pagination');
+            const pages = [];
+
+            for (let i = 1; i <= meta.totalPages; i++) {
+                pages.push(`
+                    <button class="${i === meta.page ? 'active' : ''}" onclick="goToPage(${i})">
+                        ${i}
+                    </button>
+                `);
+            }
+
+            pagination.innerHTML = pages.join('');
+        }
+
+        function goToPage(page) {
+            currentPage = page;
+            loadReports();
+        }
+
+        async function viewReport(id) {
+            try {
+                const res = await fetch(`${API_URL}/admin/reports/${id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const report = await res.json();
+
+                document.getElementById('modal-body').innerHTML = `
+                    <div style="margin-bottom: 16px;">
+                        <strong>Reporter:</strong> ${report.reporter?.firstName} ${report.reporter?.lastName} (${report.reporter?.email})
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <strong>Target:</strong> ${report.targetType} - ${report.targetId}
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <strong>Reason:</strong> <span class="badge ${report.reason}">${report.reason}</span>
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <strong>Status:</strong> <span class="badge ${report.status}">${report.status.replace('_', ' ')}</span>
+                    </div>
+                    ${report.note ? `
+                        <div style="margin-bottom: 16px;">
+                            <strong>Reporter Note:</strong><br>
+                            <div style="background: #f8f9fa; padding: 12px; border-radius: 4px; margin-top: 8px;">
+                                ${report.note}
+                            </div>
+                        </div>
+                    ` : ''}
+                    ${report.resolutionNote ? `
+                        <div style="margin-bottom: 16px;">
+                            <strong>Resolution Note:</strong><br>
+                            <div style="background: #e8f5e9; padding: 12px; border-radius: 4px; margin-top: 8px;">
+                                ${report.resolutionNote}
+                            </div>
+                        </div>
+                    ` : ''}
+                    ${report.status === 'open' || report.status === 'in_review' ? `
+                        <div class="form-group">
+                            <label>Update Status:</label>
+                            <select id="new-status" class="form-control">
+                                <option value="in_review">In Review</option>
+                                <option value="closed">Closed</option>
+                                <option value="dismissed">Dismissed</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Resolution Note:</label>
+                            <textarea id="resolution-note" rows="3"></textarea>
+                        </div>
+                        <button class="btn btn-close" onclick="submitStatusUpdate('${report.id}')" style="width: 100%;">
+                            Update Status
+                        </button>
+                    ` : ''}
+                `;
+
+                document.getElementById('modal').classList.add('show');
+            } catch (err) {
+                alert('Failed to load report details');
+            }
+        }
+
+        async function submitStatusUpdate(reportId) {
+            const status = document.getElementById('new-status').value;
+            const note = document.getElementById('resolution-note').value;
+
+            try {
+                const res = await fetch(`${API_URL}/admin/reports/${reportId}/status`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        status,
+                        resolutionNote: note || undefined
+                    })
+                });
+
+                if (!res.ok) throw new Error('Failed to update status');
+
+                closeModal();
+                loadReports();
+                loadStats();
+                alert('Status updated successfully');
+            } catch (err) {
+                alert('Failed to update status: ' + err.message);
+            }
+        }
+
+        async function updateStatus(id, status) {
+            if (!confirm(`Are you sure you want to ${status} this report?`)) return;
+
+            try {
+                const res = await fetch(`${API_URL}/admin/reports/${id}/status`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ status })
+                });
+
+                if (!res.ok) throw new Error('Failed to update status');
+
+                loadReports();
+                loadStats();
+                alert('Report updated successfully');
+            } catch (err) {
+                alert('Failed to update report: ' + err.message);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('show');
+        }
+
+        // Filter handlers
+        document.getElementById('filter-status').addEventListener('change', e => {
+            filters.status = e.target.value || undefined;
+            currentPage = 1;
+            loadReports();
+        });
+
+        document.getElementById('filter-target-type').addEventListener('change', e => {
+            filters.targetType = e.target.value || undefined;
+            currentPage = 1;
+            loadReports();
+        });
+
+        document.getElementById('filter-reason').addEventListener('change', e => {
+            filters.reason = e.target.value || undefined;
+            currentPage = 1;
+            loadReports();
+        });
+
+        // Initial load
+        loadStats();
+        loadReports();
+    </script>
+</body>
+</html>

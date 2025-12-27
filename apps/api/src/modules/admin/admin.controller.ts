@@ -24,6 +24,7 @@ import { Role } from '../../common/enums/role.enum';
 import { AdminService } from './admin.service';
 import { AdminUsersService } from './services/admin-users.service';
 import { AdminReviewsService } from './services/admin-reviews.service';
+import { AdminReportsService } from '../reports/services/admin-reports.service';
 import { AdminRateLimitGuard } from './guards/admin-rate-limit.guard';
 import { AdminIpLockGuard } from './guards/admin-ip-lock.guard';
 import { AdminFailureInterceptor } from './interceptors/admin-failure.interceptor';
@@ -40,6 +41,12 @@ import {
   HideReviewDto,
   UpdateReviewContentDto,
 } from './dto/admin-reviews.dto';
+import { GetReportsQueryDto } from '../reports/dto/get-reports-query.dto';
+import { UpdateReportStatusDto } from '../reports/dto/update-report-status.dto';
+import {
+  AdminReportResponseDto,
+  PaginatedReportsResponseDto,
+} from '../reports/dto/report-response.dto';
 
 /**
  * Admin Controller
@@ -66,6 +73,7 @@ export class AdminController {
     private readonly adminService: AdminService,
     private readonly adminUsersService: AdminUsersService,
     private readonly adminReviewsService: AdminReviewsService,
+    private readonly adminReportsService: AdminReportsService,
   ) {}
 
   /**
@@ -768,5 +776,164 @@ export class AdminController {
   ): Promise<AdminReviewResponseDto> {
     const adminUserId = req.user?.userId;
     return this.adminReviewsService.updateReview(reviewId, dto, adminUserId, req);
+  }
+
+  /**
+   * Get all reports with filters
+   * Only accessible to admins
+   */
+  @Get('reports')
+  @ApiOperation({
+    summary: 'Get all reports with filters (admin only)',
+    description: `
+      Get all user reports with pagination and filtering.
+
+      Filters:
+      - status: Filter by report status (open, in_review, closed, dismissed)
+      - targetType: Filter by target entity type (user, review, job, profile)
+      - reason: Filter by report reason (spam, inappropriate, harassment, fake, scam, other)
+      - reporterId: Filter by reporter user ID
+      - targetId: Filter by target entity ID
+
+      Sorting:
+      - sortBy: Sort field (createdAt, updatedAt, resolvedAt)
+      - sortOrder: Sort order (ASC, DESC)
+
+      Returns report data with:
+      - Reporter information
+      - Target details
+      - Resolution status and notes
+      - Admin who resolved (if applicable)
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated list of reports',
+    type: PaginatedReportsResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid query parameters',
+  })
+  async getReports(
+    @Query() query: GetReportsQueryDto,
+  ): Promise<PaginatedReportsResponseDto> {
+    return this.adminReportsService.getReports(query);
+  }
+
+  /**
+   * Get single report by ID
+   * Only accessible to admins
+   */
+  @Get('reports/:reportId')
+  @ApiOperation({
+    summary: 'Get report by ID (admin only)',
+    description: 'Get detailed information about a specific report',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Report details',
+    type: AdminReportResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Report not found',
+  })
+  async getReport(
+    @Param('reportId') reportId: string,
+  ): Promise<AdminReportResponseDto> {
+    return this.adminReportsService.getReport(reportId);
+  }
+
+  /**
+   * Update report status
+   * Only accessible to admins
+   */
+  @Patch('reports/:reportId/status')
+  @SensitiveAction() // Sensitive: Moderation action
+  @ApiOperation({
+    summary: 'Update report status (admin only)',
+    description: `
+      Update the status of a report. This action:
+      - Changes the report status (open, in_review, closed, dismissed)
+      - Records resolution note (optional)
+      - Records the admin who resolved it
+      - Records resolution timestamp
+      - Creates an audit log entry
+
+      When closing or dismissing, resolution tracking is automatically set.
+      When reopening, resolution tracking is cleared.
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Report status updated successfully',
+    type: AdminReportResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - Report is already in this status',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Report not found',
+  })
+  async updateReportStatus(
+    @Param('reportId') reportId: string,
+    @Body() dto: UpdateReportStatusDto,
+    @Request() req: any,
+  ): Promise<AdminReportResponseDto> {
+    const adminUserId = req.user?.userId;
+    return this.adminReportsService.updateReportStatus(reportId, dto, adminUserId, req);
+  }
+
+  /**
+   * Delete a report
+   * Only accessible to admins
+   */
+  @Delete('reports/:reportId')
+  @SensitiveAction() // Sensitive: Report deletion
+  @ApiOperation({
+    summary: 'Delete report (admin only)',
+    description: `
+      Permanently delete a report. This action:
+      - Hard deletes the report (cannot be undone)
+      - Creates an audit log entry
+
+      Use this for spam reports or reports created in error.
+      For legitimate reports, prefer updating status to 'dismissed'.
+    `,
+  })
+  @ApiResponse({
+    status: 204,
+    description: 'Report deleted successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Report not found',
+  })
+  async deleteReport(
+    @Param('reportId') reportId: string,
+    @Request() req: any,
+  ): Promise<void> {
+    const adminUserId = req.user?.userId;
+    return this.adminReportsService.deleteReport(reportId, adminUserId, req);
+  }
+
+  /**
+   * Get reports statistics
+   * Only accessible to admins
+   */
+  @Get('reports-stats')
+  @ApiOperation({
+    summary: 'Get reports statistics (admin only)',
+    description: 'Get aggregated statistics about reports',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Reports statistics',
+  })
+  async getReportsStatistics() {
+    return this.adminReportsService.getStatistics();
   }
 }
