@@ -25,6 +25,7 @@ import { AdminService } from './admin.service';
 import { AdminUsersService } from './services/admin-users.service';
 import { AdminReviewsService } from './services/admin-reviews.service';
 import { AdminJobsService } from './services/admin-jobs.service';
+import { AdminMatchesService } from './services/admin-matches.service';
 import { AdminReportsService } from '../reports/services/admin-reports.service';
 import { AdminTagsService } from '../tags/services/admin-tags.service';
 import { AdminRateLimitGuard } from './guards/admin-rate-limit.guard';
@@ -67,6 +68,8 @@ import {
   ChangeJobStatusDto,
   JobActionResponseDto,
 } from './dto/job-actions.dto';
+import { GetMatchesQueryDto } from './dto/get-matches-query.dto';
+import { GetMatchesResponseDto } from './dto/admin-match-response.dto';
 
 /**
  * Admin Controller
@@ -94,6 +97,7 @@ export class AdminController {
     private readonly adminUsersService: AdminUsersService,
     private readonly adminReviewsService: AdminReviewsService,
     private readonly adminJobsService: AdminJobsService,
+    private readonly adminMatchesService: AdminMatchesService,
     private readonly adminReportsService: AdminReportsService,
     private readonly adminTagsService: AdminTagsService,
   ) {}
@@ -1400,5 +1404,32 @@ export class AdminController {
   ): Promise<JobActionResponseDto> {
     const adminUserId = req.user?.userId;
     return this.adminJobsService.changeJobStatus(jobId, dto, adminUserId, req);
+  }
+
+  // ==================== MATCHES MANAGEMENT ====================
+
+  /**
+   * Get matches with risk scoring
+   * Calculates risk_score based on duplication, no response, and multi-confirm detection
+   */
+  @Get('matches')
+  @SensitiveAction()
+  @ApiOperation({
+    summary: 'Get matches with risk scoring (admin only)',
+    description:
+      'Get paginated list of matches with filters and calculated risk scores. ' +
+      'Risk score detects: duplicate matches, multiple confirmations, no response, and stale matches.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated matches list with risk scores',
+    type: GetMatchesResponseDto,
+  })
+  async getMatches(
+    @Query() query: GetMatchesQueryDto,
+    @Request() req: any,
+  ): Promise<GetMatchesResponseDto> {
+    const adminUserId = req.user?.userId;
+    return this.adminMatchesService.getMatches(query, adminUserId, req);
   }
 }
