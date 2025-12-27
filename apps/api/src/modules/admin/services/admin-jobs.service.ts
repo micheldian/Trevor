@@ -1,8 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets } from 'typeorm';
 import { Request } from 'express';
-import { Job } from '../../jobs/entities/job.entity';
+import { Job, JobStatus } from '../../jobs/entities/job.entity';
 import { Match, MatchStatus } from '../../matches/entities/match.entity';
 import { AuditLogService } from '../../audit-log/audit-log.service';
 import { GetJobsQueryDto } from '../dto/get-jobs-query.dto';
@@ -11,6 +11,13 @@ import {
   GetJobsResponseDto,
   AdminJobEmployerDto,
 } from '../dto/admin-job-response.dto';
+import {
+  CancelJobDto,
+  CompleteJobDto,
+  ReopenJobDto,
+  ChangeJobStatusDto,
+  JobActionResponseDto,
+} from '../dto/job-actions.dto';
 
 @Injectable()
 export class AdminJobsService {
@@ -289,6 +296,400 @@ export class AdminJobsService {
       nbMatches,
       confirmedMatchId,
       distance,
+    };
+  }
+
+  /**
+   * Cancel a job
+   * Rule: Cannot cancel a COMPLETED job (would need to reopen first)
+   */
+  async cancelJob(
+    jobId: string,
+    dto: CancelJobDto,
+    adminUserId: string,
+    request?: Request,
+  ): Promise<JobActionResponseDto> {
+    const job = await this.jobRepo.findOne({
+      where: { id: jobId },
+      relations: ['employer', 'employer.user'],
+    });
+
+    if (!job) {
+      throw new NotFoundException(`Job with ID ${jobId} not found`);
+    }
+
+    const previousStatus = job.status;
+
+    // Validation: Cannot cancel a COMPLETED job
+    if (job.status === JobStatus.COMPLETED) {
+      throw new BadRequestException(
+        'Cannot cancel a completed job. Please reopen it first if needed.',
+      );
+    }
+
+    // Validation: Already cancelled
+    if (job.status === JobStatus.CANCELLED) {
+      throw new BadRequestException('Job is already cancelled');
+    }
+
+    // Capture before state for audit
+    const beforeState = { ...job };
+
+    // Update job
+    job.status = JobStatus.CANCELLED;
+    job.cancellationReason = dto.reason;
+    job.cancelledAt = new Date();
+
+    await this.jobRepo.save(job);
+
+    // Audit log
+    await this.auditLogService.create({
+      actorUserId: adminUserId,
+      action: 'ADMIN_CANCEL_JOB',
+      entityType: 'job',
+      entityId: jobId,
+      beforeJson: { status: previousStatus },
+      afterJson: {
+        status: job.status,
+        cancellationReason: dto.reason,
+        adminNotes: dto.adminNotes,
+      },
+      ipAddress: request?.ip,
+      userAgent: request?.headers['user-agent'],
+    });
+
+    this.logger.log(`Admin ${adminUserId} cancelled job ${jobId}: ${dto.reason}`);
+
+    return {
+      success: true,
+      message: 'Job cancelled successfully',
+      previousStatus,
+      newStatus: job.status,
+      jobId: job.id,
+    };
+  }
+
+  /**
+   * Force complete a job
+   * Rule: Normally requires CONFIRMED status, but can override with flag
+   */
+  async completeJob(
+    jobId: string,
+    dto: CompleteJobDto,
+    adminUserId: string,
+    request?: Request,
+  ): Promise<JobActionResponseDto> {
+    const job = await this.jobRepo.findOne({
+      where: { id: jobId },
+      relations: ['employer', 'employer.user'],
+    });
+
+    if (!job) {
+      throw new NotFoundException(`Job with ID ${jobId} not found`);
+    }
+
+    const previousStatus = job.status;
+    const warnings: string[] = [];
+
+    // Validation: Already completed
+    if (job.status === JobStatus.COMPLETED) {
+      throw new BadRequestException('Job is already completed');
+    }
+
+    // Validation: Cannot complete a cancelled job without override
+    if (job.status === JobStatus.CANCELLED && !dto.override) {
+      throw new BadRequestException(
+        'Cannot complete a cancelled job. Please reopen it first or use override flag.',
+      );
+    }
+
+    // Validation: Should be CONFIRMED before completing (unless override)
+    if (job.status !== JobStatus.CONFIRMED && !dto.override) {
+      throw new BadRequestException(
+        `Job must be in CONFIRMED status to complete. Current status: ${job.status}. Use override flag to force completion.`,
+      );
+    }
+
+    // Warning if override was used
+    if (dto.override && job.status !== JobStatus.CONFIRMED) {
+      warnings.push(`Override used: Job was in ${job.status} status instead of CONFIRMED`);
+      this.logger.warn(
+        `Admin ${adminUserId} force-completed job ${jobId} from status ${job.status} (override)`,
+      );
+    }
+
+    // Update job
+    job.status = JobStatus.COMPLETED;
+    job.completedAt = new Date();
+
+    await this.jobRepo.save(job);
+
+    // Audit log
+    await this.auditLogService.create({
+      actorUserId: adminUserId,
+      action: 'ADMIN_COMPLETE_JOB',
+      entityType: 'job',
+      entityId: jobId,
+      beforeJson: { status: previousStatus },
+      afterJson: {
+        status: job.status,
+        override: dto.override || false,
+        notes: dto.notes,
+        adminNotes: dto.adminNotes,
+        warnings,
+      },
+      ipAddress: request?.ip,
+      userAgent: request?.headers['user-agent'],
+    });
+
+    this.logger.log(`Admin ${adminUserId} completed job ${jobId}`);
+
+    return {
+      success: true,
+      message: 'Job completed successfully',
+      previousStatus,
+      newStatus: job.status,
+      jobId: job.id,
+      warnings: warnings.length > 0 ? warnings : undefined,
+    };
+  }
+
+  /**
+   * Reopen a job
+   * Rule: Can reopen CANCELLED or COMPLETED jobs to a target status
+   */
+  async reopenJob(
+    jobId: string,
+    dto: ReopenJobDto,
+    adminUserId: string,
+    request?: Request,
+  ): Promise<JobActionResponseDto> {
+    const job = await this.jobRepo.findOne({
+      where: { id: jobId },
+      relations: ['employer', 'employer.user'],
+    });
+
+    if (!job) {
+      throw new NotFoundException(`Job with ID ${jobId} not found`);
+    }
+
+    const previousStatus = job.status;
+    const warnings: string[] = [];
+
+    // Validation: Can only reopen CANCELLED or COMPLETED jobs
+    if (job.status !== JobStatus.CANCELLED && job.status !== JobStatus.COMPLETED) {
+      throw new BadRequestException(
+        `Can only reopen CANCELLED or COMPLETED jobs. Current status: ${job.status}`,
+      );
+    }
+
+    // Validation: Target status must be valid for reopening
+    const validReopenStatuses = [
+      JobStatus.DRAFT,
+      JobStatus.PUBLISHED,
+      JobStatus.IN_CONTACT,
+      JobStatus.CONFIRMED,
+    ];
+
+    if (!validReopenStatuses.includes(dto.targetStatus)) {
+      throw new BadRequestException(
+        `Invalid target status for reopening: ${dto.targetStatus}. Valid statuses: ${validReopenStatuses.join(', ')}`,
+      );
+    }
+
+    // Warning if reopening to unusual status
+    if (dto.targetStatus !== JobStatus.PUBLISHED) {
+      warnings.push(
+        `Job reopened to ${dto.targetStatus} instead of the typical PUBLISHED status`,
+      );
+    }
+
+    // Update job
+    job.status = dto.targetStatus;
+
+    // Clear completion/cancellation timestamps
+    if (previousStatus === JobStatus.CANCELLED) {
+      job.cancelledAt = undefined;
+      job.cancellationReason = undefined;
+    }
+    if (previousStatus === JobStatus.COMPLETED) {
+      job.completedAt = undefined;
+    }
+
+    await this.jobRepo.save(job);
+
+    // Audit log
+    await this.auditLogService.create({
+      actorUserId: adminUserId,
+      action: 'ADMIN_REOPEN_JOB',
+      entityType: 'job',
+      entityId: jobId,
+      beforeJson: { status: previousStatus },
+      afterJson: {
+        status: job.status,
+        targetStatus: dto.targetStatus,
+        reason: dto.reason,
+        adminNotes: dto.adminNotes,
+        warnings,
+      },
+      ipAddress: request?.ip,
+      userAgent: request?.headers['user-agent'],
+    });
+
+    this.logger.log(
+      `Admin ${adminUserId} reopened job ${jobId} from ${previousStatus} to ${dto.targetStatus}`,
+    );
+
+    return {
+      success: true,
+      message: `Job reopened successfully from ${previousStatus} to ${dto.targetStatus}`,
+      previousStatus,
+      newStatus: job.status,
+      jobId: job.id,
+      warnings: warnings.length > 0 ? warnings : undefined,
+    };
+  }
+
+  /**
+   * Change job status
+   * Rule: Validates logical transitions unless override is used
+   */
+  async changeJobStatus(
+    jobId: string,
+    dto: ChangeJobStatusDto,
+    adminUserId: string,
+    request?: Request,
+  ): Promise<JobActionResponseDto> {
+    const job = await this.jobRepo.findOne({
+      where: { id: jobId },
+      relations: ['employer', 'employer.user'],
+    });
+
+    if (!job) {
+      throw new NotFoundException(`Job with ID ${jobId} not found`);
+    }
+
+    const previousStatus = job.status;
+    const warnings: string[] = [];
+
+    // Validation: No change
+    if (job.status === dto.status) {
+      throw new BadRequestException(`Job is already in ${dto.status} status`);
+    }
+
+    // Define valid status transitions
+    const validTransitions: Record<JobStatus, JobStatus[]> = {
+      [JobStatus.DRAFT]: [JobStatus.PUBLISHED, JobStatus.CANCELLED],
+      [JobStatus.PUBLISHED]: [
+        JobStatus.DRAFT,
+        JobStatus.IN_CONTACT,
+        JobStatus.CONFIRMED,
+        JobStatus.CANCELLED,
+      ],
+      [JobStatus.IN_CONTACT]: [
+        JobStatus.PUBLISHED,
+        JobStatus.CONFIRMED,
+        JobStatus.CANCELLED,
+      ],
+      [JobStatus.CONFIRMED]: [
+        JobStatus.IN_CONTACT,
+        JobStatus.COMPLETED,
+        JobStatus.CANCELLED,
+      ],
+      [JobStatus.COMPLETED]: [JobStatus.PUBLISHED], // Can reopen
+      [JobStatus.CANCELLED]: [JobStatus.PUBLISHED], // Can reopen
+    };
+
+    // Validation: Check if transition is valid (unless override)
+    if (!dto.override) {
+      const allowedStatuses = validTransitions[job.status] || [];
+      if (!allowedStatuses.includes(dto.status)) {
+        throw new BadRequestException(
+          `Invalid status transition from ${job.status} to ${dto.status}. ` +
+            `Allowed transitions: ${allowedStatuses.join(', ')}. ` +
+            `Use override flag to force this transition.`,
+        );
+      }
+    } else {
+      warnings.push(
+        `Override used: Status transition from ${job.status} to ${dto.status} was forced`,
+      );
+      this.logger.warn(
+        `Admin ${adminUserId} forced status change on job ${jobId}: ${job.status} -> ${dto.status}`,
+      );
+    }
+
+    // Update job and related timestamps
+    job.status = dto.status;
+
+    // Update timestamps based on new status
+    switch (dto.status) {
+      case JobStatus.PUBLISHED:
+        if (!job.publishedAt) {
+          job.publishedAt = new Date();
+        }
+        // Clear cancellation/completion if reopening
+        job.cancelledAt = undefined;
+        job.cancellationReason = undefined;
+        job.completedAt = undefined;
+        break;
+
+      case JobStatus.CONFIRMED:
+        if (!job.confirmedAt) {
+          job.confirmedAt = new Date();
+        }
+        break;
+
+      case JobStatus.COMPLETED:
+        if (!job.completedAt) {
+          job.completedAt = new Date();
+        }
+        break;
+
+      case JobStatus.CANCELLED:
+        if (!job.cancelledAt) {
+          job.cancelledAt = new Date();
+        }
+        // Set reason if provided
+        if (dto.reason) {
+          job.cancellationReason = dto.reason;
+        } else if (!job.cancellationReason) {
+          job.cancellationReason = 'Cancelled by admin';
+        }
+        break;
+    }
+
+    await this.jobRepo.save(job);
+
+    // Audit log
+    await this.auditLogService.create({
+      actorUserId: adminUserId,
+      action: 'ADMIN_CHANGE_JOB_STATUS',
+      entityType: 'job',
+      entityId: jobId,
+      beforeJson: { status: previousStatus },
+      afterJson: {
+        status: job.status,
+        reason: dto.reason,
+        override: dto.override || false,
+        adminNotes: dto.adminNotes,
+        warnings,
+      },
+      ipAddress: request?.ip,
+      userAgent: request?.headers['user-agent'],
+    });
+
+    this.logger.log(
+      `Admin ${adminUserId} changed job ${jobId} status: ${previousStatus} -> ${dto.status}`,
+    );
+
+    return {
+      success: true,
+      message: `Job status changed successfully from ${previousStatus} to ${dto.status}`,
+      previousStatus,
+      newStatus: job.status,
+      jobId: job.id,
+      warnings: warnings.length > 0 ? warnings : undefined,
     };
   }
 }

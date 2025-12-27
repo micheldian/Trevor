@@ -60,6 +60,13 @@ import {
 } from '../tags/dto/tag-response.dto';
 import { GetJobsQueryDto } from './dto/get-jobs-query.dto';
 import { GetJobsResponseDto } from './dto/admin-job-response.dto';
+import {
+  CancelJobDto,
+  CompleteJobDto,
+  ReopenJobDto,
+  ChangeJobStatusDto,
+  JobActionResponseDto,
+} from './dto/job-actions.dto';
 
 /**
  * Admin Controller
@@ -1261,5 +1268,137 @@ export class AdminController {
   ): Promise<GetJobsResponseDto> {
     const adminUserId = req.user?.userId;
     return this.adminJobsService.getJobs(query, adminUserId, req);
+  }
+
+  /**
+   * Cancel a job
+   * Rule: Cannot cancel COMPLETED jobs (need to reopen first)
+   */
+  @Post('jobs/:id/cancel')
+  @SensitiveAction()
+  @ApiOperation({
+    summary: 'Cancel a job (admin only)',
+    description:
+      'Cancel a job with a required reason. Cannot cancel COMPLETED jobs.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Job cancelled successfully',
+    type: JobActionResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid request or job already in incompatible state',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Job not found',
+  })
+  async cancelJob(
+    @Param('id') jobId: string,
+    @Body() dto: CancelJobDto,
+    @Request() req: any,
+  ): Promise<JobActionResponseDto> {
+    const adminUserId = req.user?.userId;
+    return this.adminJobsService.cancelJob(jobId, dto, adminUserId, req);
+  }
+
+  /**
+   * Force complete a job
+   * Rule: Normally requires CONFIRMED status, but can override
+   */
+  @Post('jobs/:id/complete')
+  @SensitiveAction()
+  @ApiOperation({
+    summary: 'Complete a job (admin only)',
+    description:
+      'Mark a job as completed. Normally requires CONFIRMED status, but can be overridden.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Job completed successfully',
+    type: JobActionResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid request or job not in valid state for completion',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Job not found',
+  })
+  async completeJob(
+    @Param('id') jobId: string,
+    @Body() dto: CompleteJobDto,
+    @Request() req: any,
+  ): Promise<JobActionResponseDto> {
+    const adminUserId = req.user?.userId;
+    return this.adminJobsService.completeJob(jobId, dto, adminUserId, req);
+  }
+
+  /**
+   * Reopen a job
+   * Rule: Can reopen CANCELLED or COMPLETED jobs
+   */
+  @Post('jobs/:id/reopen')
+  @SensitiveAction()
+  @ApiOperation({
+    summary: 'Reopen a job (admin only)',
+    description:
+      'Reopen a CANCELLED or COMPLETED job to a target status (typically PUBLISHED).',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Job reopened successfully',
+    type: JobActionResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid request or job not in CANCELLED/COMPLETED state',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Job not found',
+  })
+  async reopenJob(
+    @Param('id') jobId: string,
+    @Body() dto: ReopenJobDto,
+    @Request() req: any,
+  ): Promise<JobActionResponseDto> {
+    const adminUserId = req.user?.userId;
+    return this.adminJobsService.reopenJob(jobId, dto, adminUserId, req);
+  }
+
+  /**
+   * Change job status
+   * Rule: Validates logical transitions unless override is used
+   */
+  @Post('jobs/:id/status')
+  @SensitiveAction()
+  @ApiOperation({
+    summary: 'Change job status (admin only)',
+    description:
+      'Change job status with validation of logical transitions. Can override with flag.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Job status changed successfully',
+    type: JobActionResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid status transition',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Job not found',
+  })
+  async changeJobStatus(
+    @Param('id') jobId: string,
+    @Body() dto: ChangeJobStatusDto,
+    @Request() req: any,
+  ): Promise<JobActionResponseDto> {
+    const adminUserId = req.user?.userId;
+    return this.adminJobsService.changeJobStatus(jobId, dto, adminUserId, req);
   }
 }
