@@ -653,9 +653,38 @@ CREATE TRIGGER update_job_workers_matched_after_match
 -- ====================================
 
 -- Vue: Profils complets (user + profile)
+-- Note: Explicit column list to avoid dependency issues with PostGIS columns
 CREATE OR REPLACE VIEW profiles_full AS
 SELECT
-    p.*,
+    p.id,
+    p.user_id,
+    p.profile_type,
+    p.bio,
+    p.company_name,
+    p.siret,
+    p.city,
+    p.postal_code,
+    p.address,
+    p.skills,
+    p.experience_years,
+    p.certifications,
+    p.whatsapp_number,
+    p.preferred_contact,
+    p.rating_avg,
+    p.rating_count,
+    p.is_active,
+    p.is_complete,
+    p.has_vehicle,
+    p.latitude,
+    p.longitude,
+    p.missions_count,
+    p.completed_missions_count,
+    p.no_show_count,
+    p.cancelled_count,
+    p.reliability_score,
+    p.created_at,
+    p.updated_at,
+    -- User columns
     u.email,
     u.phone,
     u.first_name,
@@ -714,7 +743,6 @@ COMMENT ON TABLE reviews IS 'Avis après collaboration';
 COMMENT ON TABLE notifications IS 'Notifications push/email';
 COMMENT ON TABLE analytics_events IS 'Tracking événements utilisateurs';
 
-COMMENT ON COLUMN profiles.search_vector IS 'Index recherche full-text (auto-généré)';
 COMMENT ON COLUMN jobs.search_vector IS 'Index recherche full-text (auto-généré)';
 COMMENT ON COLUMN matches.match_score IS 'Score algorithme matching (0-100)';
 COMMENT ON COLUMN reviews.is_verified IS 'Avis vérifié par modération admin';
