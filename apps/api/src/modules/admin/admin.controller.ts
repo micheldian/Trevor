@@ -29,6 +29,7 @@ import { AdminMatchesService } from './services/admin-matches.service';
 import { AdminConflictsService } from './services/admin-conflicts.service';
 import { AdminMetricsService } from './services/admin-metrics.service';
 import { AdminAlertsService } from './services/admin-alerts.service';
+import { AdminSystemService } from './services/admin-system.service';
 import { AdminReportsService } from '../reports/services/admin-reports.service';
 import { AdminTagsService } from '../tags/services/admin-tags.service';
 import { AdminRateLimitGuard } from './guards/admin-rate-limit.guard';
@@ -80,6 +81,7 @@ import {
 } from './dto/conflicts.dto';
 import { MetricsResponseDto } from './dto/metrics.dto';
 import { GetAlertsResponseDto } from './dto/alerts.dto';
+import { SystemStatusResponseDto } from './dto/system-status.dto';
 
 /**
  * Admin Controller
@@ -111,6 +113,7 @@ export class AdminController {
     private readonly adminConflictsService: AdminConflictsService,
     private readonly adminMetricsService: AdminMetricsService,
     private readonly adminAlertsService: AdminAlertsService,
+    private readonly adminSystemService: AdminSystemService,
     private readonly adminReportsService: AdminReportsService,
     private readonly adminTagsService: AdminTagsService,
   ) {}
@@ -1537,5 +1540,28 @@ export class AdminController {
   async getAlerts(@Request() req: any): Promise<GetAlertsResponseDto> {
     const adminUserId = req.user?.userId;
     return this.adminAlertsService.getAlerts(adminUserId, req);
+  }
+
+  /**
+   * Get system status and version information
+   * Returns database status, migrations, version, and uptime
+   */
+  @Get('system')
+  @SensitiveAction()
+  @ApiOperation({
+    summary: 'Get system status (admin only)',
+    description:
+      'Returns comprehensive system information including: ' +
+      'application version, database connection status, ' +
+      'migrations status, and server uptime.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'System status information',
+    type: SystemStatusResponseDto,
+  })
+  async getSystemStatus(@Request() req: any): Promise<SystemStatusResponseDto> {
+    const adminUserId = req.user?.userId;
+    return this.adminSystemService.getSystemStatus(adminUserId, req);
   }
 }
