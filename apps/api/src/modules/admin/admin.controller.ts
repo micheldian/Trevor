@@ -25,6 +25,7 @@ import { AdminService } from './admin.service';
 import { AdminUsersService } from './services/admin-users.service';
 import { AdminReviewsService } from './services/admin-reviews.service';
 import { AdminReportsService } from '../reports/services/admin-reports.service';
+import { AdminTagsService } from '../tags/services/admin-tags.service';
 import { AdminRateLimitGuard } from './guards/admin-rate-limit.guard';
 import { AdminIpLockGuard } from './guards/admin-ip-lock.guard';
 import { AdminFailureInterceptor } from './interceptors/admin-failure.interceptor';
@@ -47,6 +48,15 @@ import {
   AdminReportResponseDto,
   PaginatedReportsResponseDto,
 } from '../reports/dto/report-response.dto';
+import { GetTagsQueryDto } from '../tags/dto/get-tags-query.dto';
+import { CreateTagDto } from '../tags/dto/create-tag.dto';
+import { UpdateTagDto } from '../tags/dto/update-tag.dto';
+import { CreateTagAliasDto } from '../tags/dto/create-tag-alias.dto';
+import {
+  TagResponseDto,
+  TagAliasResponseDto,
+  PaginatedTagsResponseDto,
+} from '../tags/dto/tag-response.dto';
 
 /**
  * Admin Controller
@@ -74,6 +84,7 @@ export class AdminController {
     private readonly adminUsersService: AdminUsersService,
     private readonly adminReviewsService: AdminReviewsService,
     private readonly adminReportsService: AdminReportsService,
+    private readonly adminTagsService: AdminTagsService,
   ) {}
 
   /**
@@ -935,5 +946,290 @@ export class AdminController {
   })
   async getReportsStatistics() {
     return this.adminReportsService.getStatistics();
+  }
+
+  /**
+   * Get all tags with filters
+   * Only accessible to admins
+   */
+  @Get('tags')
+  @ApiOperation({
+    summary: 'Get all tags with filters (admin only)',
+    description: `
+      Get all tags with pagination and filtering.
+
+      Filters:
+      - category: Filter by tag category (culture, skill, certification, equipment, other)
+      - isActive: Filter by active status (true/false)
+      - search: Search in tag name and description
+      - includeAliases: Include aliases in response
+
+      Sorting:
+      - sortBy: Sort field (name, usageCount, createdAt)
+      - sortOrder: Sort order (ASC, DESC)
+
+      Returns tag data with:
+      - Canonical tag names
+      - Category and description
+      - Usage statistics
+      - Active status
+      - Aliases (if requested)
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated list of tags',
+    type: PaginatedTagsResponseDto,
+  })
+  async getTags(@Query() query: GetTagsQueryDto): Promise<PaginatedTagsResponseDto> {
+    return this.adminTagsService.getTags(query);
+  }
+
+  /**
+   * Get single tag by ID
+   * Only accessible to admins
+   */
+  @Get('tags/:tagId')
+  @ApiOperation({
+    summary: 'Get tag by ID (admin only)',
+    description: 'Get detailed information about a specific tag including its aliases',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Tag details',
+    type: TagResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Tag not found',
+  })
+  async getTag(@Param('tagId') tagId: string): Promise<TagResponseDto> {
+    return this.adminTagsService.getTag(tagId);
+  }
+
+  /**
+   * Create a new tag
+   * Only accessible to admins
+   */
+  @Post('tags')
+  @SensitiveAction() // Sensitive: Content management
+  @ApiOperation({
+    summary: 'Create new tag (admin only)',
+    description: `
+      Create a new canonical tag. This action:
+      - Creates a tag with auto-generated slug
+      - Sets initial active status to true
+      - Creates an audit log entry
+
+      Tag names are automatically normalized (lowercase, trimmed).
+    `,
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Tag created successfully',
+    type: TagResponseDto,
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Tag with this name already exists',
+  })
+  async createTag(
+    @Body() dto: CreateTagDto,
+    @Request() req: any,
+  ): Promise<TagResponseDto> {
+    const adminUserId = req.user?.userId;
+    return this.adminTagsService.createTag(dto, adminUserId, req);
+  }
+
+  /**
+   * Update a tag
+   * Only accessible to admins
+   */
+  @Patch('tags/:tagId')
+  @SensitiveAction() // Sensitive: Content management
+  @ApiOperation({
+    summary: 'Update tag (admin only)',
+    description: `
+      Update an existing tag. This action:
+      - Updates tag properties
+      - Auto-regenerates slug if name is changed
+      - Creates an audit log entry
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Tag updated successfully',
+    type: TagResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Tag not found',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Tag with this name already exists',
+  })
+  async updateTag(
+    @Param('tagId') tagId: string,
+    @Body() dto: UpdateTagDto,
+    @Request() req: any,
+  ): Promise<TagResponseDto> {
+    const adminUserId = req.user?.userId;
+    return this.adminTagsService.updateTag(tagId, dto, adminUserId, req);
+  }
+
+  /**
+   * Delete a tag
+   * Only accessible to admins
+   */
+  @Delete('tags/:tagId')
+  @SensitiveAction() // Sensitive: Content deletion
+  @ApiOperation({
+    summary: 'Delete tag (admin only)',
+    description: `
+      Permanently delete a tag. This action:
+      - Hard deletes the tag and all its aliases (CASCADE)
+      - Only allowed if usageCount is 0
+      - Creates an audit log entry
+
+      If tag is being used, deactivate it instead using PATCH /tags/:id.
+    `,
+  })
+  @ApiResponse({
+    status: 204,
+    description: 'Tag deleted successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Tag is being used and cannot be deleted',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Tag not found',
+  })
+  async deleteTag(
+    @Param('tagId') tagId: string,
+    @Request() req: any,
+  ): Promise<void> {
+    const adminUserId = req.user?.userId;
+    return this.adminTagsService.deleteTag(tagId, adminUserId, req);
+  }
+
+  /**
+   * Create a tag alias
+   * Only accessible to admins
+   */
+  @Post('tags/aliases')
+  @SensitiveAction() // Sensitive: Content management
+  @ApiOperation({
+    summary: 'Create tag alias (admin only)',
+    description: `
+      Create a tag alias (variation). This action:
+      - Links a variation (e.g., "pommes") to a canonical tag (e.g., "pomme")
+      - Validates that alias doesn't conflict with existing tags or aliases
+      - Creates an audit log entry
+
+      Aliases are used to normalize search queries and improve matching.
+    `,
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Tag alias created successfully',
+    type: TagAliasResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Tag not found',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Alias already exists or conflicts with tag name',
+  })
+  async createTagAlias(
+    @Body() dto: CreateTagAliasDto,
+    @Request() req: any,
+  ): Promise<TagAliasResponseDto> {
+    const adminUserId = req.user?.userId;
+    return this.adminTagsService.createTagAlias(dto, adminUserId, req);
+  }
+
+  /**
+   * Toggle tag alias active status
+   * Only accessible to admins
+   */
+  @Patch('tags/aliases/:aliasId/toggle')
+  @SensitiveAction() // Sensitive: Content management
+  @ApiOperation({
+    summary: 'Toggle tag alias status (admin only)',
+    description: `
+      Toggle the active status of a tag alias. This action:
+      - Switches isActive between true and false
+      - Creates an audit log entry
+
+      Inactive aliases are not used in search normalization.
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Alias status toggled successfully',
+    type: TagAliasResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Tag alias not found',
+  })
+  async toggleAliasStatus(
+    @Param('aliasId') aliasId: string,
+    @Request() req: any,
+  ): Promise<TagAliasResponseDto> {
+    const adminUserId = req.user?.userId;
+    return this.adminTagsService.toggleAliasStatus(aliasId, adminUserId, req);
+  }
+
+  /**
+   * Delete a tag alias
+   * Only accessible to admins
+   */
+  @Delete('tags/aliases/:aliasId')
+  @SensitiveAction() // Sensitive: Content deletion
+  @ApiOperation({
+    summary: 'Delete tag alias (admin only)',
+    description: `
+      Permanently delete a tag alias. This action:
+      - Hard deletes the alias
+      - Creates an audit log entry
+    `,
+  })
+  @ApiResponse({
+    status: 204,
+    description: 'Tag alias deleted successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Tag alias not found',
+  })
+  async deleteTagAlias(
+    @Param('aliasId') aliasId: string,
+    @Request() req: any,
+  ): Promise<void> {
+    const adminUserId = req.user?.userId;
+    return this.adminTagsService.deleteTagAlias(aliasId, adminUserId, req);
+  }
+
+  /**
+   * Get tags statistics
+   * Only accessible to admins
+   */
+  @Get('tags-stats')
+  @ApiOperation({
+    summary: 'Get tags statistics (admin only)',
+    description: 'Get aggregated statistics about tags and aliases',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Tags statistics',
+  })
+  async getTagsStatistics() {
+    return this.adminTagsService.getStatistics();
   }
 }

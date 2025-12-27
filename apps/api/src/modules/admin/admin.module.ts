@@ -11,6 +11,7 @@ import { AdminIpLockGuard } from './guards/admin-ip-lock.guard';
 import { AdminFailureInterceptor } from './interceptors/admin-failure.interceptor';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 import { ReportsModule } from '../reports/reports.module';
+import { TagsModule } from '../tags/tags.module';
 import { User } from '../users/entities/user.entity';
 import { Profile } from '../profiles/entities/profile.entity';
 import { Job } from '../jobs/entities/job.entity';
@@ -22,6 +23,7 @@ import { Review } from '../reviews/entities/review.entity';
     TypeOrmModule.forFeature([User, Profile, Job, Match, Review]),
     AuditLogModule,
     ReportsModule,
+    TagsModule,
   ],
   controllers: [AdminController],
   providers: [

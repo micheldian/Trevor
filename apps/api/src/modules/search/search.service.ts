@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets } from 'typeorm';
 import { Availability } from '../availability/entities/availability.entity';
 import { Profile } from '../profiles/entities/profile.entity';
+import { Tag } from '../tags/entities/tag.entity';
+import { TagAlias } from '../tags/entities/tag-alias.entity';
 import { SearchAvailableDto } from './dto/search-available.dto';
 import {
   ProfileCard,
@@ -18,7 +20,77 @@ export class SearchService {
     private readonly availabilityRepo: Repository<Availability>,
     @InjectRepository(Profile)
     private readonly profileRepo: Repository<Profile>,
+    @InjectRepository(Tag)
+    private readonly tagRepo: Repository<Tag>,
+    @InjectRepository(TagAlias)
+    private readonly tagAliasRepo: Repository<TagAlias>,
   ) {}
+
+  /**
+   * Normalize skills using tags and aliases
+   * Converts alias variations (e.g., "pommes") to canonical tag names (e.g., "pomme")
+   */
+  private async normalizeSkills(skills: string[]): Promise<string[]> {
+    if (skills.length === 0) {
+      return [];
+    }
+
+    // Normalize input: lowercase and trim
+    const normalizedInput = skills.map((s) => s.trim().toLowerCase());
+
+    // Get all active tag aliases that match the input
+    const aliases = await this.tagAliasRepo.find({
+      where: normalizedInput.map((alias) => ({ alias })),
+      relations: ['tag'],
+    });
+
+    // Create a map of alias -> canonical tag name
+    const aliasMap = new Map<string, string>();
+    for (const alias of aliases) {
+      if (alias.tag && alias.tag.isActive) {
+        aliasMap.set(alias.alias.toLowerCase(), alias.tag.name.toLowerCase());
+      }
+    }
+
+    // Get all active canonical tags that match the input
+    const tags = await this.tagRepo.find({
+      where: normalizedInput.map((name) => ({ name })),
+      select: ['name', 'isActive'],
+    });
+
+    const canonicalTagSet = new Set<string>();
+    for (const tag of tags) {
+      if (tag.isActive) {
+        canonicalTagSet.add(tag.name.toLowerCase());
+      }
+    }
+
+    // Normalize each skill
+    const normalized: string[] = [];
+    for (const skill of normalizedInput) {
+      // Check if it's an alias first
+      if (aliasMap.has(skill)) {
+        const canonical = aliasMap.get(skill)!;
+        if (!normalized.includes(canonical)) {
+          normalized.push(canonical);
+        }
+      }
+      // Check if it's already a canonical tag
+      else if (canonicalTagSet.has(skill)) {
+        if (!normalized.includes(skill)) {
+          normalized.push(skill);
+        }
+      }
+      // Otherwise keep the original (for backward compatibility)
+      else {
+        if (!normalized.includes(skill)) {
+          normalized.push(skill);
+        }
+      }
+    }
+
+    return normalized;
+  }
 
   /**
    * Recherche de profils disponibles avec tri sophistiqué
@@ -62,8 +134,9 @@ export class SearchService {
       }
     }
 
-    // Parsing skills
+    // Parsing skills and normalize using tags/aliases
     const skillsArray = skills ? skills.split(',').map((s) => s.trim()) : [];
+    const normalizedSkills = await this.normalizeSkills(skillsArray);
 
     // Query builder complexe
     const qb = this.availabilityRepo
@@ -148,9 +221,9 @@ export class SearchService {
     }
 
     // Calcul score de match compétences
-    if (skillsArray.length > 0) {
+    if (normalizedSkills.length > 0) {
       // PostgreSQL: COUNT overlap skills
-      const skillsPlaceholder = skillsArray.map((s) => `'${s}'`).join(',');
+      const skillsPlaceholder = normalizedSkills.map((s) => `'${s}'`).join(',');
       qb.addSelect(
         `(
           SELECT COUNT(*)
@@ -169,7 +242,7 @@ export class SearchService {
 
     // TRI SOPHISTIQUÉ
     // 1. Score match compétences (DESC)
-    if (skillsArray.length > 0) {
+    if (normalizedSkills.length > 0) {
       qb.addOrderBy('skills_matched', 'DESC');
     }
 
@@ -207,8 +280,8 @@ export class SearchService {
       let matchScore = 0;
 
       // Compétences (40 points)
-      if (skillsArray.length > 0) {
-        matchScore += (skillsMatched / skillsArray.length) * 40;
+      if (normalizedSkills.length > 0) {
+        matchScore += (skillsMatched / normalizedSkills.length) * 40;
       }
 
       // Rating (30 points)
@@ -251,7 +324,7 @@ export class SearchService {
         matchScore: Math.round(matchScore),
         matchReasons: {
           skillsMatched,
-          totalSkills: skillsArray.length,
+          totalSkills: normalizedSkills.length,
           hasVehicle: profile.hasVehicle || false,
           rating: Number(profile.ratingAvg),
           experience: profile.experienceYears,
