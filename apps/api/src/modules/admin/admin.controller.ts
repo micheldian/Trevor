@@ -24,6 +24,7 @@ import { Role } from '../../common/enums/role.enum';
 import { AdminService } from './admin.service';
 import { AdminUsersService } from './services/admin-users.service';
 import { AdminReviewsService } from './services/admin-reviews.service';
+import { AdminJobsService } from './services/admin-jobs.service';
 import { AdminReportsService } from '../reports/services/admin-reports.service';
 import { AdminTagsService } from '../tags/services/admin-tags.service';
 import { AdminRateLimitGuard } from './guards/admin-rate-limit.guard';
@@ -57,6 +58,8 @@ import {
   TagAliasResponseDto,
   PaginatedTagsResponseDto,
 } from '../tags/dto/tag-response.dto';
+import { GetJobsQueryDto } from './dto/get-jobs-query.dto';
+import { GetJobsResponseDto } from './dto/admin-job-response.dto';
 
 /**
  * Admin Controller
@@ -83,6 +86,7 @@ export class AdminController {
     private readonly adminService: AdminService,
     private readonly adminUsersService: AdminUsersService,
     private readonly adminReviewsService: AdminReviewsService,
+    private readonly adminJobsService: AdminJobsService,
     private readonly adminReportsService: AdminReportsService,
     private readonly adminTagsService: AdminTagsService,
   ) {}
@@ -1231,5 +1235,31 @@ export class AdminController {
   })
   async getTagsStatistics() {
     return this.adminTagsService.getStatistics();
+  }
+
+  // ==================== JOBS MANAGEMENT ====================
+
+  /**
+   * Get jobs with comprehensive filters
+   * Allows admins to view and manage all jobs in the platform
+   */
+  @Get('jobs')
+  @SensitiveAction()
+  @ApiOperation({
+    summary: 'Get jobs with filters (admin only)',
+    description:
+      'Get paginated list of jobs with filters for status, employer, culture/tag, date ranges, and location distance',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated jobs list',
+    type: GetJobsResponseDto,
+  })
+  async getJobs(
+    @Query() query: GetJobsQueryDto,
+    @Request() req: any,
+  ): Promise<GetJobsResponseDto> {
+    const adminUserId = req.user?.userId;
+    return this.adminJobsService.getJobs(query, adminUserId, req);
   }
 }

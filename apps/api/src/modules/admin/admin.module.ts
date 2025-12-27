@@ -5,6 +5,7 @@ import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { AdminUsersService } from './services/admin-users.service';
 import { AdminReviewsService } from './services/admin-reviews.service';
+import { AdminJobsService } from './services/admin-jobs.service';
 import { AdminIpLockService } from './services/admin-ip-lock.service';
 import { AdminRateLimitGuard } from './guards/admin-rate-limit.guard';
 import { AdminIpLockGuard } from './guards/admin-ip-lock.guard';
@@ -30,6 +31,7 @@ import { Review } from '../reviews/entities/review.entity';
     AdminService,
     AdminUsersService,
     AdminReviewsService,
+    AdminJobsService,
     AdminIpLockService,
     AdminRateLimitGuard,
     AdminIpLockGuard,
@@ -39,6 +41,7 @@ import { Review } from '../reviews/entities/review.entity';
     AdminService,
     AdminUsersService,
     AdminReviewsService,
+    AdminJobsService,
     AdminIpLockService,
     AdminRateLimitGuard,
     AdminIpLockGuard,
