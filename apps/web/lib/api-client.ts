@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 class ApiClient {
   private client: AxiosInstance;
@@ -70,15 +70,15 @@ class ApiClient {
 
   // Auth endpoints
   async sendOTP(phone: string) {
-    const response = await this.client.post('/auth/send-otp', { phone });
+    const response = await this.client.post('/auth/start', { phone });
     return response.data;
   }
 
   async verifyOTP(phone: string, code: string) {
-    const response = await this.client.post('/auth/verify-otp', { phone, code });
-    const { access_token, user, profile } = response.data;
-    this.setToken(access_token);
-    this.setUserProfile(profile);
+    const response = await this.client.post('/auth/verify', { phone, code });
+    const { accessToken, user } = response.data;
+    this.setToken(accessToken);
+    this.setUserProfile(user);
     return response.data;
   }
 
