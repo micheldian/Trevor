@@ -26,6 +26,7 @@ import { AdminUsersService } from './services/admin-users.service';
 import { AdminReviewsService } from './services/admin-reviews.service';
 import { AdminJobsService } from './services/admin-jobs.service';
 import { AdminMatchesService } from './services/admin-matches.service';
+import { AdminConflictsService } from './services/admin-conflicts.service';
 import { AdminReportsService } from '../reports/services/admin-reports.service';
 import { AdminTagsService } from '../tags/services/admin-tags.service';
 import { AdminRateLimitGuard } from './guards/admin-rate-limit.guard';
@@ -70,6 +71,11 @@ import {
 } from './dto/job-actions.dto';
 import { GetMatchesQueryDto } from './dto/get-matches-query.dto';
 import { GetMatchesResponseDto } from './dto/admin-match-response.dto';
+import {
+  GetConflictsResponseDto,
+  ResolveConflictDto,
+  ResolveConflictResponseDto,
+} from './dto/conflicts.dto';
 
 /**
  * Admin Controller
@@ -98,6 +104,7 @@ export class AdminController {
     private readonly adminReviewsService: AdminReviewsService,
     private readonly adminJobsService: AdminJobsService,
     private readonly adminMatchesService: AdminMatchesService,
+    private readonly adminConflictsService: AdminConflictsService,
     private readonly adminReportsService: AdminReportsService,
     private readonly adminTagsService: AdminTagsService,
   ) {}
@@ -1431,5 +1438,63 @@ export class AdminController {
   ): Promise<GetMatchesResponseDto> {
     const adminUserId = req.user?.userId;
     return this.adminMatchesService.getMatches(query, adminUserId, req);
+  }
+
+  // ==================== CONFLICTS DETECTION ====================
+
+  /**
+   * Get scheduling conflicts
+   * Detects when candidates are confirmed on multiple jobs with overlapping time slots
+   */
+  @Get('conflicts')
+  @SensitiveAction()
+  @ApiOperation({
+    summary: 'Detect scheduling conflicts (admin only)',
+    description:
+      'Detects when a candidate is confirmed on multiple jobs with overlapping schedules. ' +
+      'Returns conflicts categorized by severity (critical, high, medium).',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of scheduling conflicts',
+    type: GetConflictsResponseDto,
+  })
+  async getConflicts(@Request() req: any): Promise<GetConflictsResponseDto> {
+    const adminUserId = req.user?.userId;
+    return this.adminConflictsService.getConflicts(adminUserId, req);
+  }
+
+  /**
+   * Resolve a scheduling conflict
+   * Cancels one of the conflicting matches to resolve the conflict
+   */
+  @Post('conflicts/:conflictId/resolve')
+  @SensitiveAction()
+  @ApiOperation({
+    summary: 'Resolve a scheduling conflict (admin only)',
+    description:
+      'Resolves a scheduling conflict by cancelling one of the conflicting matches. ' +
+      'Optionally notifies the employer and candidate about the cancellation.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Conflict resolved successfully',
+    type: ResolveConflictResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Match not found',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid request or match not in CONFIRMED status',
+  })
+  async resolveConflict(
+    @Param('conflictId') conflictId: string,
+    @Body() dto: ResolveConflictDto,
+    @Request() req: any,
+  ): Promise<ResolveConflictResponseDto> {
+    const adminUserId = req.user?.userId;
+    return this.adminConflictsService.resolveConflict(conflictId, dto, adminUserId, req);
   }
 }
