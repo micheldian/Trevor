@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trevor Admin Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .auth-section {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .auth-section input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .auth-section button {
+            width: 100%;
+            padding: 12px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .auth-section button:hover {
+            background: #2980b9;
+        }
+
+        .dashboard {
+            display: none;
+        }
+
+        .dashboard.active {
+            display: block;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .metric-card {
+            background: white;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .metric-label {
+            font-size: 14px;
+            color: #7f8c8d;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value {
+            font-size: 36px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 4px;
+        }
+
+        .metric-value.percentage::after {
+            content: '%';
+            font-size: 24px;
+            color: #7f8c8d;
+            margin-left: 2px;
+        }
+
+        .metric-value.hours::after {
+            content: 'h';
+            font-size: 20px;
+            color: #7f8c8d;
+            margin-left: 4px;
+        }
+
+        .metric-trend {
+            font-size: 13px;
+            color: #27ae60;
+        }
+
+        .metric-trend.negative {
+            color: #e74c3c;
+        }
+
+        .section {
+            background: white;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: #3498db;
+            margin-right: 12px;
+            border-radius: 2px;
+        }
+
+        .top-list {
+            list-style: none;
+        }
+
+        .top-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        .top-item:last-child {
+            border-bottom: none;
+        }
+
+        .top-item-rank {
+            font-weight: 700;
+            color: #3498db;
+            margin-right: 12px;
+            min-width: 30px;
+        }
+
+        .top-item-name {
+            flex: 1;
+            font-size: 15px;
+        }
+
+        .top-item-count {
+            font-weight: 600;
+            color: #2c3e50;
+            background: #ecf0f1;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 13px;
+        }
+
+        .top-item-details {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-left: 8px;
+        }
+
+        .refresh-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            padding: 16px 24px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+            transition: all 0.3s;
+        }
+
+        .refresh-btn:hover {
+            background: #2980b9;
+            box-shadow: 0 6px 16px rgba(52, 152, 219, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .logout-btn {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            padding: 10px 20px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .logout-btn:hover {
+            background: #c0392b;
+        }
+
+        .error {
+            background: #fff5f5;
+            color: #e74c3c;
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+            border-left: 4px solid #e74c3c;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+
+        .timestamp {
+            text-align: right;
+            color: #7f8c8d;
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .refresh-btn {
+                bottom: 20px;
+                right: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="auth-section" id="authSection">
+            <h1>Trevor Admin Dashboard</h1>
+            <p class="subtitle">Please log in with your admin credentials</p>
+            <div id="authError"></div>
+            <input type="text" id="emailInput" placeholder="Email" />
+            <input type="password" id="passwordInput" placeholder="Password" />
+            <button onclick="login()">Login</button>
+        </div>
+
+        <div class="dashboard" id="dashboard">
+            <h1>Trevor Admin Dashboard</h1>
+            <p class="subtitle">Real-time platform metrics and KPIs</p>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+
+            <div id="errorContainer"></div>
+            <div id="timestamp" class="timestamp"></div>
+
+            <div id="loadingIndicator" class="loading">Loading metrics...</div>
+            <div id="metricsContainer" style="display: none;">
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">Active Users (7 Days)</div>
+                        <div class="metric-value" id="activeUsers">-</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-label">New Registrations (7 Days)</div>
+                        <div class="metric-value" id="newRegistrations">-</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-label">Real-Time Availability ON</div>
+                        <div class="metric-value" id="availabilityOn">-</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-label">Total Jobs Created</div>
+                        <div class="metric-value" id="jobsCreated">-</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-label">Total Jobs Confirmed</div>
+                        <div class="metric-value" id="jobsConfirmed">-</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-label">Confirmation Rate</div>
+                        <div class="metric-value percentage" id="confirmationRate">-</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-label">No-Show Rate</div>
+                        <div class="metric-value percentage" id="noShowRate">-</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-label">Avg Time to Confirm</div>
+                        <div class="metric-value hours" id="avgTimeConfirm">-</div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2 class="section-title">Top Cultures & Tags</h2>
+                    <ul class="top-list" id="topCulturesList"></ul>
+                </div>
+
+                <div class="section">
+                    <h2 class="section-title">Top Employers</h2>
+                    <ul class="top-list" id="topEmployersList"></ul>
+                </div>
+            </div>
+
+            <button class="refresh-btn" onclick="loadMetrics()">↻ Refresh Metrics</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        let token = localStorage.getItem('adminToken');
+
+        // Check if already logged in
+        if (token) {
+            showDashboard();
+            loadMetrics();
+        }
+
+        async function login() {
+            const email = document.getElementById('emailInput').value;
+            const password = document.getElementById('passwordInput').value;
+            const errorContainer = document.getElementById('authError');
+
+            errorContainer.innerHTML = '';
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password }),
+                });
+
+                if (!response.ok) {
+                    throw new Error('Invalid credentials');
+                }
+
+                const data = await response.json();
+                token = data.accessToken;
+                localStorage.setItem('adminToken', token);
+
+                showDashboard();
+                loadMetrics();
+            } catch (error) {
+                errorContainer.innerHTML = `<div class="error">${error.message}</div>`;
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('adminToken');
+            token = null;
+            document.getElementById('authSection').style.display = 'block';
+            document.getElementById('dashboard').classList.remove('active');
+        }
+
+        function showDashboard() {
+            document.getElementById('authSection').style.display = 'none';
+            document.getElementById('dashboard').classList.add('active');
+        }
+
+        async function loadMetrics() {
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const metricsContainer = document.getElementById('metricsContainer');
+            const errorContainer = document.getElementById('errorContainer');
+
+            loadingIndicator.style.display = 'block';
+            metricsContainer.style.display = 'none';
+            errorContainer.innerHTML = '';
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/metrics`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401 || response.status === 403) {
+                        logout();
+                        throw new Error('Session expired. Please log in again.');
+                    }
+                    throw new Error('Failed to load metrics');
+                }
+
+                const data = await response.json();
+                displayMetrics(data);
+
+                loadingIndicator.style.display = 'none';
+                metricsContainer.style.display = 'block';
+            } catch (error) {
+                loadingIndicator.style.display = 'none';
+                errorContainer.innerHTML = `<div class="error">${error.message}</div>`;
+            }
+        }
+
+        function displayMetrics(data) {
+            // Update timestamp
+            document.getElementById('timestamp').textContent =
+                `Last updated: ${new Date(data.calculatedAt).toLocaleString()}`;
+
+            // Update metric cards
+            document.getElementById('activeUsers').textContent = data.activeUsersLast7Days.toLocaleString();
+            document.getElementById('newRegistrations').textContent = data.newRegistrationsLast7Days.toLocaleString();
+            document.getElementById('availabilityOn').textContent = data.realTimeAvailabilityOn.toLocaleString();
+            document.getElementById('jobsCreated').textContent = data.totalJobsCreated.toLocaleString();
+            document.getElementById('jobsConfirmed').textContent = data.totalJobsConfirmed.toLocaleString();
+            document.getElementById('confirmationRate').textContent = data.confirmationRate.toFixed(1);
+            document.getElementById('noShowRate').textContent = data.noShowRate.toFixed(1);
+            document.getElementById('avgTimeConfirm').textContent = data.avgTimeToConfirmHours.toFixed(1);
+
+            // Update top cultures list
+            const culturesList = document.getElementById('topCulturesList');
+            culturesList.innerHTML = '';
+            data.topCultures.forEach((culture, index) => {
+                const li = document.createElement('li');
+                li.className = 'top-item';
+                li.innerHTML = `
+                    <span class="top-item-rank">#${index + 1}</span>
+                    <span class="top-item-name">${culture.culture}</span>
+                    <span class="top-item-count">${culture.count} jobs</span>
+                `;
+                culturesList.appendChild(li);
+            });
+
+            // Update top employers list
+            const employersList = document.getElementById('topEmployersList');
+            employersList.innerHTML = '';
+            data.topEmployers.forEach((employer, index) => {
+                const li = document.createElement('li');
+                li.className = 'top-item';
+                li.innerHTML = `
+                    <span class="top-item-rank">#${index + 1}</span>
+                    <span class="top-item-name">${employer.employerName || 'Unknown'}</span>
+                    <span class="top-item-count">${employer.jobCount} jobs</span>
+                    <span class="top-item-details">${employer.confirmedJobCount} confirmed</span>
+                `;
+                employersList.appendChild(li);
+            });
+        }
+
+        // Auto-refresh every 60 seconds
+        setInterval(() => {
+            if (token && document.getElementById('dashboard').classList.contains('active')) {
+                loadMetrics();
+            }
+        }, 60000);
+    </script>
+</body>
+</html>

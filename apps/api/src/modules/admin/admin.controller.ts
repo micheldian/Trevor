@@ -27,6 +27,7 @@ import { AdminReviewsService } from './services/admin-reviews.service';
 import { AdminJobsService } from './services/admin-jobs.service';
 import { AdminMatchesService } from './services/admin-matches.service';
 import { AdminConflictsService } from './services/admin-conflicts.service';
+import { AdminMetricsService } from './services/admin-metrics.service';
 import { AdminReportsService } from '../reports/services/admin-reports.service';
 import { AdminTagsService } from '../tags/services/admin-tags.service';
 import { AdminRateLimitGuard } from './guards/admin-rate-limit.guard';
@@ -76,6 +77,7 @@ import {
   ResolveConflictDto,
   ResolveConflictResponseDto,
 } from './dto/conflicts.dto';
+import { MetricsResponseDto } from './dto/metrics.dto';
 
 /**
  * Admin Controller
@@ -105,6 +107,7 @@ export class AdminController {
     private readonly adminJobsService: AdminJobsService,
     private readonly adminMatchesService: AdminMatchesService,
     private readonly adminConflictsService: AdminConflictsService,
+    private readonly adminMetricsService: AdminMetricsService,
     private readonly adminReportsService: AdminReportsService,
     private readonly adminTagsService: AdminTagsService,
   ) {}
@@ -521,20 +524,6 @@ export class AdminController {
   })
   async getAllMatches() {
     return this.adminService.getAllMatches();
-  }
-
-  /**
-   * Get platform metrics
-   * Only accessible to admins
-   */
-  @Get('metrics')
-  @ApiOperation({ summary: 'Get platform metrics (admin only)' })
-  @ApiResponse({
-    status: 200,
-    description: 'Platform metrics',
-  })
-  async getMetrics() {
-    return this.adminService.getMetrics();
   }
 
   /**
@@ -1496,5 +1485,29 @@ export class AdminController {
   ): Promise<ResolveConflictResponseDto> {
     const adminUserId = req.user?.userId;
     return this.adminConflictsService.resolveConflict(conflictId, dto, adminUserId, req);
+  }
+
+  /**
+   * Get dashboard metrics and KPIs
+   * Returns comprehensive platform metrics for admin dashboard
+   */
+  @Get('metrics')
+  @SensitiveAction()
+  @ApiOperation({
+    summary: 'Get dashboard metrics and KPIs (admin only)',
+    description:
+      'Returns comprehensive platform metrics including: ' +
+      'active users (7 days), new registrations, real-time availability, ' +
+      'jobs created/confirmed, confirmation rate, no-show rate, ' +
+      'average time to confirm, top cultures/tags, and top employers.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Dashboard metrics',
+    type: MetricsResponseDto,
+  })
+  async getMetrics(@Request() req: any): Promise<MetricsResponseDto> {
+    const adminUserId = req.user?.userId;
+    return this.adminMetricsService.getMetrics(adminUserId, req);
   }
 }

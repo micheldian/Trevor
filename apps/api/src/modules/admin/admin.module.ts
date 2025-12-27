@@ -8,6 +8,7 @@ import { AdminReviewsService } from './services/admin-reviews.service';
 import { AdminJobsService } from './services/admin-jobs.service';
 import { AdminMatchesService } from './services/admin-matches.service';
 import { AdminConflictsService } from './services/admin-conflicts.service';
+import { AdminMetricsService } from './services/admin-metrics.service';
 import { AdminIpLockService } from './services/admin-ip-lock.service';
 import { AdminRateLimitGuard } from './guards/admin-rate-limit.guard';
 import { AdminIpLockGuard } from './guards/admin-ip-lock.guard';
@@ -36,6 +37,7 @@ import { Review } from '../reviews/entities/review.entity';
     AdminJobsService,
     AdminMatchesService,
     AdminConflictsService,
+    AdminMetricsService,
     AdminIpLockService,
     AdminRateLimitGuard,
     AdminIpLockGuard,
@@ -48,6 +50,7 @@ import { Review } from '../reviews/entities/review.entity';
     AdminJobsService,
     AdminMatchesService,
     AdminConflictsService,
+    AdminMetricsService,
     AdminIpLockService,
     AdminRateLimitGuard,
     AdminIpLockGuard,
