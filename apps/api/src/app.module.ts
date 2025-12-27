@@ -39,7 +39,7 @@ import { RolesGuard } from './common/guards/roles.guard';
         password: configService.get('DATABASE_PASSWORD'),
         database: configService.get('DATABASE_NAME'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: configService.get('NODE_ENV') === 'development',
+        synchronize: false, // Disabled - using SQL migrations instead
         logging: configService.get('NODE_ENV') === 'development',
         ssl: configService.get('DATABASE_SSL') === 'true',
       }),
