@@ -42,12 +42,8 @@ export default function LoginPage() {
     try {
       const result = await apiClient.verifyOTP(phone, otp);
 
-      // Redirect based on profile type
-      if (result.profile?.type === 'employer') {
-        router.push('/dashboard');
-      } else {
-        router.push('/profile');
-      }
+      // Redirect to dashboard after successful login
+      router.push('/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Code invalide');
     } finally {
