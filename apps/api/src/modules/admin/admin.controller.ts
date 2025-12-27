@@ -28,6 +28,7 @@ import { AdminJobsService } from './services/admin-jobs.service';
 import { AdminMatchesService } from './services/admin-matches.service';
 import { AdminConflictsService } from './services/admin-conflicts.service';
 import { AdminMetricsService } from './services/admin-metrics.service';
+import { AdminAlertsService } from './services/admin-alerts.service';
 import { AdminReportsService } from '../reports/services/admin-reports.service';
 import { AdminTagsService } from '../tags/services/admin-tags.service';
 import { AdminRateLimitGuard } from './guards/admin-rate-limit.guard';
@@ -78,6 +79,7 @@ import {
   ResolveConflictResponseDto,
 } from './dto/conflicts.dto';
 import { MetricsResponseDto } from './dto/metrics.dto';
+import { GetAlertsResponseDto } from './dto/alerts.dto';
 
 /**
  * Admin Controller
@@ -108,6 +110,7 @@ export class AdminController {
     private readonly adminMatchesService: AdminMatchesService,
     private readonly adminConflictsService: AdminConflictsService,
     private readonly adminMetricsService: AdminMetricsService,
+    private readonly adminAlertsService: AdminAlertsService,
     private readonly adminReportsService: AdminReportsService,
     private readonly adminTagsService: AdminTagsService,
   ) {}
@@ -1509,5 +1512,30 @@ export class AdminController {
   async getMetrics(@Request() req: any): Promise<MetricsResponseDto> {
     const adminUserId = req.user?.userId;
     return this.adminMetricsService.getMetrics(adminUserId, req);
+  }
+
+  /**
+   * Get platform alerts
+   * Detects critical issues requiring admin attention
+   */
+  @Get('alerts')
+  @SensitiveAction()
+  @ApiOperation({
+    summary: 'Get platform alerts (admin only)',
+    description:
+      'Detects and returns critical platform alerts including: ' +
+      'employers with high cancellation rates, ' +
+      'workers with multiple no-shows, ' +
+      'unfulfilled demand spikes, ' +
+      'and negative reviews trends.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Platform alerts',
+    type: GetAlertsResponseDto,
+  })
+  async getAlerts(@Request() req: any): Promise<GetAlertsResponseDto> {
+    const adminUserId = req.user?.userId;
+    return this.adminAlertsService.getAlerts(adminUserId, req);
   }
 }
