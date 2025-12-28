@@ -349,4 +349,27 @@ export class JobsService {
 
     return this.findAll({ employerId });
   }
+
+  /**
+   * Récupérer toutes les missions de l'utilisateur (tous ses profils employers)
+   */
+  async findByUser(userId: string): Promise<Job[]> {
+    // Get all employer profiles for this user
+    const employerProfiles = await this.profileRepository.find({
+      where: { userId, profileType: ProfileType.EMPLOYER },
+    });
+
+    if (employerProfiles.length === 0) {
+      return [];
+    }
+
+    // Get jobs for all employer profiles
+    const employerIds = employerProfiles.map((p) => p.id);
+
+    return this.jobRepository.find({
+      where: employerIds.map((employerId) => ({ employerId, isActive: true })),
+      relations: ['employer', 'employer.user'],
+      order: { createdAt: 'DESC' },
+    });
+  }
 }

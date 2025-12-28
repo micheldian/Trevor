@@ -97,6 +97,23 @@ export class JobsController {
     });
   }
 
+  @Get('my-jobs')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Récupérer mes missions',
+    description: 'Liste des missions créées par l\'utilisateur connecté',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Liste de mes missions',
+    type: [Job],
+  })
+  async getMyJobs(@Request() req: any): Promise<Job[]> {
+    // Get all employer profiles for this user and return their jobs
+    return this.jobsService.findByUser(req.user.sub);
+  }
+
   @Get('profiles/:profileId/jobs')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
