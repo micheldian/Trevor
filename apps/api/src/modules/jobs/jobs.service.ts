@@ -356,7 +356,7 @@ export class JobsService {
   async findByUser(userId: string): Promise<Job[]> {
     // Get all employer profiles for this user
     const employerProfiles = await this.profileRepository.find({
-      where: { userId, profileType: ProfileType.EMPLOYER },
+      where: { userId, type: ProfileType.EMPLOYER },
     });
 
     if (employerProfiles.length === 0) {
