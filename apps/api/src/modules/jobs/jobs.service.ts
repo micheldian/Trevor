@@ -84,6 +84,25 @@ export class JobsService {
   }
 
   /**
+   * Créer une mission pour l'utilisateur connecté (utilise son profil employeur)
+   */
+  async createForUser(userId: string, dto: CreateJobDto): Promise<Job> {
+    // Trouver le profil employeur de l'utilisateur
+    const employerProfile = await this.profileRepository.findOne({
+      where: { userId, type: ProfileType.EMPLOYER },
+    });
+
+    if (!employerProfile) {
+      throw new ForbiddenException(
+        'Vous devez avoir un profil employeur pour créer une mission',
+      );
+    }
+
+    // Utiliser la méthode create existante
+    return this.create(userId, employerProfile.id, dto);
+  }
+
+  /**
    * Récupérer tous les jobs (avec filtres optionnels)
    */
   async findAll(filters?: {

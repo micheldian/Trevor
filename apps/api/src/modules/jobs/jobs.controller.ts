@@ -30,6 +30,26 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class JobsController {
   constructor(private readonly jobsService: JobsService) {}
 
+  @Post()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Créer une nouvelle mission',
+    description: 'Créer une mission avec le profil employeur de l\'utilisateur connecté',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Mission créée avec succès',
+    type: Job,
+  })
+  @ApiResponse({ status: 403, description: 'Profil employeur requis' })
+  async createJob(
+    @Request() req: any,
+    @Body() createJobDto: CreateJobDto,
+  ): Promise<Job> {
+    return this.jobsService.createForUser(req.user.sub, createJobDto);
+  }
+
   @Post('profiles/:profileId')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
