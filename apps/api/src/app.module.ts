@@ -9,6 +9,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { AvailabilityModule } from './modules/availability/availability.module';
 import { SearchModule } from './modules/search/search.module';
 import { JobsModule } from './modules/jobs/jobs.module';
+import { ProfilesModule } from './modules/profiles/profiles.module';
 import { MatchesModule } from './modules/matches/matches.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { AdminModule } from './modules/admin/admin.module';
@@ -76,6 +77,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     AvailabilityModule,
     SearchModule,
     JobsModule,
+    ProfilesModule,
     MatchesModule,
     ReviewsModule,
     AdminModule,
