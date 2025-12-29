@@ -32,6 +32,13 @@ export enum JobTimeSlot {
   DAY = 'day',
 }
 
+export enum JobType {
+  FULL_TIME = 'full_time',
+  PART_TIME = 'part_time',
+  SEASONAL = 'seasonal',
+  TEMPORARY = 'temporary',
+}
+
 @Entity('jobs')
 export class Job {
   @PrimaryGeneratedColumn('uuid')
@@ -46,6 +53,13 @@ export class Job {
 
   @Column({ type: 'varchar', length: 200 })
   title: string;
+
+  @Column({
+    type: 'enum',
+    enum: JobType,
+    name: 'job_type',
+  })
+  jobType: JobType;
 
   @Column({ type: 'text', nullable: true })
   description?: string;

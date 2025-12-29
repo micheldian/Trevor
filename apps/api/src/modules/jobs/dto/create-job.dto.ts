@@ -19,6 +19,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   JobDateType,
   JobTimeSlot,
+  JobType,
 } from '../entities/job.entity';
 
 export class CreateJobDto {
@@ -27,6 +28,14 @@ export class CreateJobDto {
   @MinLength(5)
   @MaxLength(200)
   title: string;
+
+  @ApiProperty({
+    description: 'Type de contrat',
+    enum: JobType,
+    example: JobType.SEASONAL,
+  })
+  @IsEnum(JobType)
+  jobType: JobType;
 
   @ApiPropertyOptional({
     description: 'Description détaillée de la mission',
