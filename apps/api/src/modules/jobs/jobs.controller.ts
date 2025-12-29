@@ -47,7 +47,7 @@ export class JobsController {
     @Request() req: any,
     @Body() createJobDto: CreateJobDto,
   ): Promise<Job> {
-    return this.jobsService.createForUser(req.user.sub, createJobDto);
+    return this.jobsService.createForUser(req.user.id, createJobDto);
   }
 
   @Post('profiles/:profileId')
@@ -69,7 +69,7 @@ export class JobsController {
     @Param('profileId') profileId: string,
     @Body() createJobDto: CreateJobDto,
   ): Promise<Job> {
-    return this.jobsService.create(req.user.userId, profileId, createJobDto);
+    return this.jobsService.create(req.user.id, profileId, createJobDto);
   }
 
   @Get()
@@ -131,7 +131,7 @@ export class JobsController {
   })
   async getMyJobs(@Request() req: any): Promise<Job[]> {
     // Get all employer profiles for this user and return their jobs
-    return this.jobsService.findByUser(req.user.sub);
+    return this.jobsService.findByUser(req.user.id);
   }
 
   @Get('profiles/:profileId/jobs')
@@ -151,7 +151,7 @@ export class JobsController {
     @Request() req: any,
     @Param('profileId') profileId: string,
   ): Promise<Job[]> {
-    return this.jobsService.findByEmployer(req.user.userId, profileId);
+    return this.jobsService.findByEmployer(req.user.id, profileId);
   }
 
   @Get(':id')
@@ -190,7 +190,7 @@ export class JobsController {
     @Param('id') id: string,
     @Body() updateJobDto: UpdateJobDto,
   ): Promise<Job> {
-    return this.jobsService.update(req.user.userId, id, updateJobDto);
+    return this.jobsService.update(req.user.id, id, updateJobDto);
   }
 
   @Patch(':id/status')
@@ -221,7 +221,7 @@ export class JobsController {
     @Param('id') id: string,
     @Body() dto: TransitionJobStatusDto,
   ): Promise<Job> {
-    return this.jobsService.transitionStatus(req.user.userId, id, dto);
+    return this.jobsService.transitionStatus(req.user.id, id, dto);
   }
 
   @Delete(':id')
@@ -239,6 +239,6 @@ export class JobsController {
     description: 'Impossible de supprimer dans cet état',
   })
   async remove(@Request() req: any, @Param('id') id: string): Promise<void> {
-    return this.jobsService.remove(req.user.userId, id);
+    return this.jobsService.remove(req.user.id, id);
   }
 }

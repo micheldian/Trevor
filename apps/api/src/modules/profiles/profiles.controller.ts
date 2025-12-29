@@ -37,7 +37,7 @@ export class ProfilesController {
     @Request() req: any,
     @Body() createProfileDto: CreateProfileDto,
   ): Promise<Profile> {
-    return this.profilesService.create(req.user.sub, createProfileDto);
+    return this.profilesService.create(req.user.id, createProfileDto);
   }
 
   @Get('my-profiles')
@@ -53,7 +53,7 @@ export class ProfilesController {
     type: [Profile],
   })
   async getMyProfiles(@Request() req: any): Promise<Profile[]> {
-    return this.profilesService.findByUser(req.user.sub);
+    return this.profilesService.findByUser(req.user.id);
   }
 
   @Get(':id')
@@ -84,7 +84,7 @@ export class ProfilesController {
     @Param('id') id: string,
     @Body() updateProfileDto: UpdateProfileDto,
   ): Promise<Profile> {
-    return this.profilesService.update(req.user.sub, id, updateProfileDto);
+    return this.profilesService.update(req.user.id, id, updateProfileDto);
   }
 
   @Delete(':id')
@@ -95,6 +95,6 @@ export class ProfilesController {
   @ApiResponse({ status: 403, description: 'Non autorisé' })
   @ApiResponse({ status: 404, description: 'Profil non trouvé' })
   async remove(@Request() req: any, @Param('id') id: string): Promise<void> {
-    return this.profilesService.remove(req.user.sub, id);
+    return this.profilesService.remove(req.user.id, id);
   }
 }
