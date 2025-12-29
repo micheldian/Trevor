@@ -109,7 +109,28 @@ class ApiClient {
     return response.data;
   }
 
-  // Profiles/Search endpoints
+  // Profiles endpoints
+  async createProfile(profileData: any) {
+    const response = await this.client.post('/profiles', profileData);
+    return response.data;
+  }
+
+  async getMyProfiles() {
+    const response = await this.client.get('/profiles/my-profiles');
+    return response.data;
+  }
+
+  async getProfile(id: string) {
+    const response = await this.client.get(`/profiles/${id}`);
+    return response.data;
+  }
+
+  async updateProfile(id: string, profileData: any) {
+    const response = await this.client.patch(`/profiles/${id}`, profileData);
+    return response.data;
+  }
+
+  // Search endpoints
   async searchProfiles(params: {
     latitude?: number;
     longitude?: number;
