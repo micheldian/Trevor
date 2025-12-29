@@ -12,6 +12,7 @@ interface JobCreateFormProps {
 
 interface JobFormData {
   title: string;
+  jobType: string;
   description: string;
   culture: string;
   tags: string;
@@ -38,6 +39,7 @@ export default function JobCreateForm({ onSuccess, onCancel }: JobCreateFormProp
     formState: { errors },
   } = useForm<JobFormData>({
     defaultValues: {
+      jobType: 'seasonal',
       dateType: 'this_week',
       timeSlot: 'day',
       nbPeople: 1,
@@ -64,6 +66,7 @@ export default function JobCreateForm({ onSuccess, onCancel }: JobCreateFormProp
       // Prepare job data
       const jobData = {
         title: data.title,
+        jobType: data.jobType,
         description: data.description,
         culture: data.culture,
         tags,
@@ -118,6 +121,22 @@ export default function JobCreateForm({ onSuccess, onCancel }: JobCreateFormProp
             />
             {errors.title && (
               <p className="text-sm text-red-600 mt-1">{errors.title.message}</p>
+            )}
+          </div>
+
+          {/* Job Type */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Type de contrat *
+            </label>
+            <select {...register('jobType', { required: 'Le type de contrat est requis' })} className="input-field">
+              <option value="seasonal">Saisonnier</option>
+              <option value="temporary">Temporaire</option>
+              <option value="part_time">Temps partiel</option>
+              <option value="full_time">Temps plein</option>
+            </select>
+            {errors.jobType && (
+              <p className="text-sm text-red-600 mt-1">{errors.jobType.message}</p>
             )}
           </div>
 
