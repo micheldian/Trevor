@@ -26,8 +26,8 @@ export default function HomePage() {
       const profiles = await apiClient.getMyProfiles();
 
       if (!profiles || profiles.length === 0) {
-        // No profile created yet, go to profile creation
-        router.push('/profile');
+        // No profile created yet, go to role selection
+        router.push('/choose-role');
         return;
       }
 
@@ -48,13 +48,13 @@ export default function HomePage() {
         // User is worker, go to jobs list
         router.push('/jobs');
       } else {
-        // Shouldn't happen, but redirect to profile creation just in case
-        router.push('/profile');
+        // Shouldn't happen, but redirect to role selection just in case
+        router.push('/choose-role');
       }
     } catch (err) {
       console.error('Error checking profiles:', err);
-      // On error, redirect to profile creation
-      router.push('/profile');
+      // On error, redirect to role selection
+      router.push('/choose-role');
     } finally {
       setChecking(false);
     }
