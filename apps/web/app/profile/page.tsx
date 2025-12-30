@@ -105,11 +105,15 @@ export default function ProfilePage() {
         ? data.skills.split(',').map((s) => s.trim()).filter(Boolean)
         : [];
 
+      // Format WhatsApp number, or set to undefined if empty
+      const formattedWhatsApp = data.whatsappNumber?.trim();
+      const whatsappNumber = formattedWhatsApp ? formatWhatsAppNumber(formattedWhatsApp) : undefined;
+
       const profileData = {
         ...data,
         skills,
         experienceYears: Number(data.experienceYears) || 0,
-        whatsappNumber: data.whatsappNumber ? formatWhatsAppNumber(data.whatsappNumber) : undefined,
+        whatsappNumber,
       };
 
       if (profile) {

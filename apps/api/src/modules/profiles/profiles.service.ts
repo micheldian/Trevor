@@ -29,6 +29,13 @@ export class ProfilesService {
       );
     }
 
+    // Debug logging for whatsapp number
+    if (dto.whatsappNumber) {
+      console.log('[ProfilesService] WhatsApp number received:', dto.whatsappNumber);
+      console.log('[ProfilesService] WhatsApp number length:', dto.whatsappNumber.length);
+      console.log('[ProfilesService] WhatsApp number regex test:', /^\+33[0-9]{9}$/.test(dto.whatsappNumber));
+    }
+
     const profile = this.profileRepository.create({
       userId,
       ...dto,

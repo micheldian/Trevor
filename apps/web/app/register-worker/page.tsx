@@ -87,6 +87,10 @@ export default function RegisterWorkerPage() {
     setSuccess(false);
 
     try {
+      // Format WhatsApp number, or set to undefined if empty
+      const formattedWhatsApp = data.whatsappNumber?.trim();
+      const whatsappNumber = formattedWhatsApp ? formatWhatsAppNumber(formattedWhatsApp) : undefined;
+
       const profileData = {
         type: data.type,
         city: data.city,
@@ -95,7 +99,7 @@ export default function RegisterWorkerPage() {
         skills,
         experienceYears: Number(data.experienceYears) || 0,
         hasVehicle: data.hasVehicle,
-        whatsappNumber: data.whatsappNumber ? formatWhatsAppNumber(data.whatsappNumber) : undefined,
+        whatsappNumber,
       };
 
       await apiClient.createProfile(profileData);
