@@ -83,6 +83,12 @@ export class Job {
   @Column({ name: 'specific_date', type: 'date', nullable: true })
   specificDate?: Date;
 
+  @Column({ name: 'start_date', type: 'date', nullable: true })
+  startDate?: Date;
+
+  @Column({ name: 'end_date', type: 'date', nullable: true })
+  endDate?: Date;
+
   @Column({
     type: 'enum',
     enum: JobTimeSlot,
