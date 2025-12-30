@@ -52,13 +52,13 @@ export class Profile {
   @Column({ type: 'text', nullable: true })
   address?: string;
 
-  @Column({ type: 'simple-array', nullable: true })
+  @Column({ type: 'text', array: true, nullable: true, default: [] })
   skills?: string[];
 
   @Column({ name: 'experience_years', default: 0 })
   experienceYears: number;
 
-  @Column({ type: 'simple-array', nullable: true })
+  @Column({ type: 'text', array: true, nullable: true, default: [] })
   certifications?: string[];
 
   @Column({ name: 'whatsapp_number', nullable: true, length: 20 })
