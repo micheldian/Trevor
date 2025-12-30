@@ -17,6 +17,33 @@ export class ProfilesService {
     private profileRepository: Repository<Profile>,
   ) {}
 
+  private formatWhatsAppNumber(phone: string): string | undefined {
+    if (!phone || (typeof phone === 'string' && phone.trim() === '')) {
+      return undefined;
+    }
+
+    // Remove all spaces, dots, and dashes
+    let cleaned = phone.replace(/[\s.-]/g, '');
+
+    // If starts with 06 or 07, convert to +336 or +337
+    if (/^0[67]\d{8}$/.test(cleaned)) {
+      return '+33' + cleaned.substring(1);
+    }
+
+    // If starts with 336 or 337, add +
+    if (/^33[67]\d{8}$/.test(cleaned)) {
+      return '+' + cleaned;
+    }
+
+    // If already starts with +33, return as is
+    if (/^\+33[67]\d{8}$/.test(cleaned)) {
+      return cleaned;
+    }
+
+    // Return cleaned value (will fail validation if invalid)
+    return cleaned;
+  }
+
   async create(userId: string, dto: CreateProfileDto): Promise<Profile> {
     // Check if user already has a profile of this type
     const existing = await this.profileRepository.findOne({
@@ -29,16 +56,15 @@ export class ProfilesService {
       );
     }
 
-    // Debug logging for whatsapp number
-    if (dto.whatsappNumber) {
-      console.log('[ProfilesService] WhatsApp number received:', dto.whatsappNumber);
-      console.log('[ProfilesService] WhatsApp number length:', dto.whatsappNumber.length);
-      console.log('[ProfilesService] WhatsApp number regex test:', /^\+33[0-9]{9}$/.test(dto.whatsappNumber));
-    }
+    // Format WhatsApp number before saving
+    const formattedDto = {
+      ...dto,
+      whatsappNumber: dto.whatsappNumber ? this.formatWhatsAppNumber(dto.whatsappNumber) : undefined,
+    };
 
     const profile = this.profileRepository.create({
       userId,
-      ...dto,
+      ...formattedDto,
     });
 
     return this.profileRepository.save(profile);
@@ -81,7 +107,13 @@ export class ProfilesService {
       throw new ForbiddenException('Non autorisé à modifier ce profil');
     }
 
-    Object.assign(profile, dto);
+    // Format WhatsApp number before updating
+    const formattedDto = {
+      ...dto,
+      whatsappNumber: dto.whatsappNumber ? this.formatWhatsAppNumber(dto.whatsappNumber) : undefined,
+    };
+
+    Object.assign(profile, formattedDto);
     return this.profileRepository.save(profile);
   }
 
