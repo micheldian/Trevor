@@ -37,6 +37,10 @@ export class ProfilesController {
     @Request() req: any,
     @Body() createProfileDto: CreateProfileDto,
   ): Promise<Profile> {
+    console.log('[ProfilesController] Create profile request body:', JSON.stringify(createProfileDto, null, 2));
+    console.log('[ProfilesController] WhatsApp number:', createProfileDto.whatsappNumber);
+    console.log('[ProfilesController] WhatsApp type:', typeof createProfileDto.whatsappNumber);
+    console.log('[ProfilesController] WhatsApp length:', createProfileDto.whatsappNumber?.length);
     return this.profilesService.create(req.user.id, createProfileDto);
   }
 
