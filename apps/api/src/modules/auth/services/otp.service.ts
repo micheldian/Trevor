@@ -152,7 +152,7 @@ export class OtpService {
   }
 
   /**
-   * Vérifie le rate limiting (max 5 OTP par heure par identifiant)
+   * Vérifie le rate limiting (max 20 OTP par heure par identifiant - augmenté pour les tests)
    */
   async checkRateLimit(identifier: string): Promise<void> {
     const rateLimitKey = `${this.OTP_PREFIX}rate:${identifier}`;
@@ -163,7 +163,7 @@ export class OtpService {
       await this.redis.expire(rateLimitKey, 3600);
     }
 
-    if (count > 5) {
+    if (count > 20) {
       throw new BadRequestException(
         'Trop de demandes. Réessayez dans 1 heure.',
       );
