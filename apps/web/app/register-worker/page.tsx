@@ -55,6 +55,32 @@ export default function RegisterWorkerPage() {
     }
   };
 
+  // Format WhatsApp number to international format
+  const formatWhatsAppNumber = (phone: string): string => {
+    if (!phone) return '';
+
+    // Remove all spaces, dots, and dashes
+    let cleaned = phone.replace(/[\s.-]/g, '');
+
+    // If starts with 06 or 07, convert to +336 or +337
+    if (/^0[67]\d{8}$/.test(cleaned)) {
+      return '+33' + cleaned.substring(1);
+    }
+
+    // If starts with 336 or 337, add +
+    if (/^33[67]\d{8}$/.test(cleaned)) {
+      return '+' + cleaned;
+    }
+
+    // If already starts with +33, return as is
+    if (/^\+33[67]\d{8}$/.test(cleaned)) {
+      return cleaned;
+    }
+
+    // Return as is (will fail validation if invalid)
+    return cleaned;
+  };
+
   const onSubmit = async (data: WorkerFormData) => {
     setSaving(true);
     setError('');
@@ -69,7 +95,7 @@ export default function RegisterWorkerPage() {
         skills,
         experienceYears: Number(data.experienceYears) || 0,
         hasVehicle: data.hasVehicle,
-        whatsappNumber: data.whatsappNumber,
+        whatsappNumber: data.whatsappNumber ? formatWhatsAppNumber(data.whatsappNumber) : undefined,
       };
 
       await apiClient.createProfile(profileData);
@@ -276,10 +302,22 @@ export default function RegisterWorkerPage() {
                 Numéro WhatsApp (recommandé)
               </label>
               <input
-                {...register('whatsappNumber')}
+                {...register('whatsappNumber', {
+                  validate: (value) => {
+                    if (!value) return true; // Optional field
+                    const formatted = formatWhatsAppNumber(value);
+                    if (!/^\+33[67]\d{8}$/.test(formatted)) {
+                      return 'Format invalide. Utilisez un numéro français: 06XXXXXXXX ou +33XXXXXXXXX';
+                    }
+                    return true;
+                  }
+                })}
                 className="input-field"
-                placeholder="+33612345678"
+                placeholder="06XXXXXXXX ou +33XXXXXXXXX"
               />
+              {errors.whatsappNumber && (
+                <p className="text-sm text-red-600 mt-1">{errors.whatsappNumber.message}</p>
+              )}
               <p className="text-xs text-gray-500 mt-1">
                 Les employeurs pourront vous contacter rapidement via WhatsApp
               </p>
