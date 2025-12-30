@@ -110,9 +110,34 @@ export class CreateProfileDto {
   })
   @Transform(({ value }) => {
     // Convert empty strings to undefined to satisfy database constraint
-    if (typeof value === 'string' && value.trim() === '') {
+    if (!value || (typeof value === 'string' && value.trim() === '')) {
       return undefined;
     }
+
+    // Format French phone numbers to international format
+    if (typeof value === 'string') {
+      // Remove all spaces, dots, and dashes
+      let cleaned = value.replace(/[\s.-]/g, '');
+
+      // If starts with 06 or 07, convert to +336 or +337
+      if (/^0[67]\d{8}$/.test(cleaned)) {
+        return '+33' + cleaned.substring(1);
+      }
+
+      // If starts with 336 or 337, add +
+      if (/^33[67]\d{8}$/.test(cleaned)) {
+        return '+' + cleaned;
+      }
+
+      // If already starts with +33, return as is
+      if (/^\+33[67]\d{8}$/.test(cleaned)) {
+        return cleaned;
+      }
+
+      // Return cleaned value (will fail validation if invalid)
+      return cleaned;
+    }
+
     return value;
   })
   @IsString()
