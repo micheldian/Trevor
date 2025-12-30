@@ -10,6 +10,7 @@ import {
   MaxLength,
   IsBoolean,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ProfileType } from '../entities/profile.entity';
 
 export class CreateProfileDto {
@@ -106,6 +107,13 @@ export class CreateProfileDto {
   @ApiProperty({
     description: 'Numéro WhatsApp',
     required: false,
+  })
+  @Transform(({ value }) => {
+    // Convert empty strings to undefined to satisfy database constraint
+    if (typeof value === 'string' && value.trim() === '') {
+      return undefined;
+    }
+    return value;
   })
   @IsString()
   @IsOptional()
