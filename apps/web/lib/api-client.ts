@@ -104,7 +104,7 @@ class ApiClient {
 
   async publishJob(id: string) {
     const response = await this.client.post(`/jobs/${id}/transition`, {
-      newStatus: 'published',
+      status: 'published',
     });
     return response.data;
   }

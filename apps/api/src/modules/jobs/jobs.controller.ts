@@ -224,6 +224,29 @@ export class JobsController {
     return this.jobsService.transitionStatus(req.user.id, id, dto);
   }
 
+  @Post(':id/transition')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Changer le statut d\'une mission',
+    description: 'Alias pour PATCH :id/status',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Statut mis à jour',
+    type: Job,
+  })
+  @ApiResponse({ status: 400, description: 'Transition non autorisée' })
+  @ApiResponse({ status: 403, description: 'Accès refusé' })
+  @ApiResponse({ status: 404, description: 'Mission non trouvée' })
+  async transitionStatusPost(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() dto: TransitionJobStatusDto,
+  ): Promise<Job> {
+    return this.jobsService.transitionStatus(req.user.id, id, dto);
+  }
+
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
