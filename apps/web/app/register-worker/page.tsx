@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
-import { Save, User, MapPin, Award, Car, Loader2, CheckCircle, ArrowLeft } from 'lucide-react';
+import { Save, User, MapPin, Award, Car, Loader2, CheckCircle, ArrowLeft, X, Plus } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 
 interface WorkerFormData {
@@ -11,7 +11,6 @@ interface WorkerFormData {
   city: string;
   postalCode: string;
   bio?: string;
-  skills?: string;
   experienceYears?: number;
   hasVehicle?: boolean;
   whatsappNumber?: string;
@@ -22,6 +21,8 @@ export default function RegisterWorkerPage() {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [skills, setSkills] = useState<string[]>([]);
+  const [skillInput, setSkillInput] = useState('');
 
   const {
     register,
@@ -35,17 +36,31 @@ export default function RegisterWorkerPage() {
     },
   });
 
+  const addSkill = () => {
+    const skill = skillInput.trim();
+    if (skill && !skills.includes(skill)) {
+      setSkills([...skills, skill]);
+      setSkillInput('');
+    }
+  };
+
+  const removeSkill = (skillToRemove: string) => {
+    setSkills(skills.filter((s) => s !== skillToRemove));
+  };
+
+  const handleSkillInputKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addSkill();
+    }
+  };
+
   const onSubmit = async (data: WorkerFormData) => {
     setSaving(true);
     setError('');
     setSuccess(false);
 
     try {
-      // Parse skills from comma-separated string
-      const skills = data.skills
-        ? data.skills.split(',').map((s) => s.trim()).filter(Boolean)
-        : [];
-
       const profileData = {
         type: data.type,
         city: data.city,
@@ -193,13 +208,50 @@ export default function RegisterWorkerPage() {
                 <Award className="w-3 h-3 inline mr-1" />
                 Compétences
               </label>
-              <input
-                {...register('skills')}
-                className="input-field"
-                placeholder="Ex: Vendanges, Taille, Conduite tracteur (séparées par des virgules)"
-              />
+
+              {/* Skills Tags Display */}
+              {skills.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {skills.map((skill, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full border border-green-300"
+                    >
+                      {skill}
+                      <button
+                        type="button"
+                        onClick={() => removeSkill(skill)}
+                        className="ml-2 hover:text-green-900 focus:outline-none"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Add Skill Input */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={skillInput}
+                  onChange={(e) => setSkillInput(e.target.value)}
+                  onKeyDown={handleSkillInputKeyDown}
+                  className="input-field flex-1"
+                  placeholder="Ex: Vendanges, Taille, Conduite tracteur..."
+                />
+                <button
+                  type="button"
+                  onClick={addSkill}
+                  disabled={!skillInput.trim()}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Ajouter</span>
+                </button>
+              </div>
               <p className="text-xs text-gray-500 mt-1">
-                Séparez vos compétences par des virgules
+                Ajoutez vos compétences une par une ou appuyez sur Entrée
               </p>
             </div>
 
