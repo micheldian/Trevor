@@ -109,6 +109,16 @@ class ApiClient {
     return response.data;
   }
 
+  async getJobs(params?: {
+    status?: string;
+    employerId?: string;
+    culture?: string;
+    isUrgent?: boolean;
+  }) {
+    const response = await this.client.get('/jobs', { params });
+    return response.data;
+  }
+
   // Profiles endpoints
   async createProfile(profileData: any) {
     const response = await this.client.post('/profiles', profileData);

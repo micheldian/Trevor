@@ -16,7 +16,8 @@ export default function HomePage() {
       if (profile.type === 'employer') {
         router.push('/dashboard');
       } else {
-        router.push('/profile');
+        // Workers go to jobs list
+        router.push('/jobs');
       }
     } else {
       // No auth, go to login
