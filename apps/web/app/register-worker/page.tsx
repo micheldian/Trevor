@@ -28,6 +28,8 @@ const COUNTRY_CODES = [
   { code: '+351', country: 'Portugal', flag: '🇵🇹' },
   { code: '+31', country: 'Pays-Bas', flag: '🇳🇱' },
   { code: '+44', country: 'Royaume-Uni', flag: '🇬🇧' },
+  { code: '+48', country: 'Pologne', flag: '🇵🇱' },
+  { code: '+40', country: 'Roumanie', flag: '🇷🇴' },
 ];
 
 export default function RegisterWorkerPage() {
