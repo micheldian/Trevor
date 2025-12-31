@@ -101,4 +101,10 @@ export class ProfilesController {
   async remove(@Request() req: any, @Param('id') id: string): Promise<void> {
     return this.profilesService.remove(req.user.id, id);
   }
+
+  @Post('_dev/remove-whatsapp-constraint')
+  @ApiOperation({ summary: '[DEV] Remove WhatsApp constraint from database' })
+  async removeWhatsAppConstraint(): Promise<{ message: string }> {
+    return this.profilesService.removeWhatsAppConstraint();
+  }
 }

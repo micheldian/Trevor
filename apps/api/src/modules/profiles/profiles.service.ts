@@ -134,4 +134,15 @@ export class ProfilesService {
     profile.isActive = false;
     await this.profileRepository.save(profile);
   }
+
+  async removeWhatsAppConstraint(): Promise<{ message: string }> {
+    try {
+      await this.profileRepository.query(
+        'ALTER TABLE profiles DROP CONSTRAINT IF EXISTS whatsapp_format'
+      );
+      return { message: 'WhatsApp constraint removed successfully' };
+    } catch (error) {
+      throw new BadRequestException(`Failed to remove constraint: ${error.message}`);
+    }
+  }
 }
