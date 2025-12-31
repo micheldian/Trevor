@@ -16,6 +16,20 @@ interface WorkerFormData {
   whatsappNumber?: string;
 }
 
+// European country codes with flags
+const COUNTRY_CODES = [
+  { code: '+33', country: 'France', flag: '🇫🇷' },
+  { code: '+32', country: 'Belgique', flag: '🇧🇪' },
+  { code: '+352', country: 'Luxembourg', flag: '🇱🇺' },
+  { code: '+41', country: 'Suisse', flag: '🇨🇭' },
+  { code: '+49', country: 'Allemagne', flag: '🇩🇪' },
+  { code: '+39', country: 'Italie', flag: '🇮🇹' },
+  { code: '+34', country: 'Espagne', flag: '🇪🇸' },
+  { code: '+351', country: 'Portugal', flag: '🇵🇹' },
+  { code: '+31', country: 'Pays-Bas', flag: '🇳🇱' },
+  { code: '+44', country: 'Royaume-Uni', flag: '🇬🇧' },
+];
+
 export default function RegisterWorkerPage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -23,6 +37,8 @@ export default function RegisterWorkerPage() {
   const [error, setError] = useState('');
   const [skills, setSkills] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState('');
+  const [countryCode, setCountryCode] = useState('+33'); // Default to France
+  const [phoneNumber, setPhoneNumber] = useState('');
 
   const {
     register,
@@ -55,41 +71,14 @@ export default function RegisterWorkerPage() {
     }
   };
 
-  // Format WhatsApp number to international format
-  const formatWhatsAppNumber = (phone: string): string => {
-    if (!phone) return '';
-
-    // Remove all spaces, dots, and dashes
-    let cleaned = phone.replace(/[\s.-]/g, '');
-
-    // If starts with 06 or 07, convert to +336 or +337
-    if (/^0[67]\d{8}$/.test(cleaned)) {
-      return '+33' + cleaned.substring(1);
-    }
-
-    // If starts with 336 or 337, add +
-    if (/^33[67]\d{8}$/.test(cleaned)) {
-      return '+' + cleaned;
-    }
-
-    // If already starts with +33, return as is
-    if (/^\+33[67]\d{8}$/.test(cleaned)) {
-      return cleaned;
-    }
-
-    // Return as is (will fail validation if invalid)
-    return cleaned;
-  };
-
   const onSubmit = async (data: WorkerFormData) => {
     setSaving(true);
     setError('');
     setSuccess(false);
 
     try {
-      // Format WhatsApp number, or set to undefined if empty
-      const formattedWhatsApp = data.whatsappNumber?.trim();
-      const whatsappNumber = formattedWhatsApp ? formatWhatsAppNumber(formattedWhatsApp) : undefined;
+      // Concatenate country code + phone number if phone number is provided
+      const whatsappNumber = phoneNumber.trim() ? `${countryCode}${phoneNumber.trim()}` : undefined;
 
       const profileData = {
         type: data.type,
@@ -305,23 +294,30 @@ export default function RegisterWorkerPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Numéro WhatsApp (recommandé)
               </label>
-              <input
-                {...register('whatsappNumber', {
-                  validate: (value) => {
-                    if (!value) return true; // Optional field
-                    const formatted = formatWhatsAppNumber(value);
-                    if (!/^\+33[67]\d{8}$/.test(formatted)) {
-                      return 'Format invalide. Utilisez un numéro français: 06XXXXXXXX ou +33XXXXXXXXX';
-                    }
-                    return true;
-                  }
-                })}
-                className="input-field"
-                placeholder="06XXXXXXXX ou +33XXXXXXXXX"
-              />
-              {errors.whatsappNumber && (
-                <p className="text-sm text-red-600 mt-1">{errors.whatsappNumber.message}</p>
-              )}
+              <div className="flex gap-2">
+                {/* Country Code Dropdown */}
+                <select
+                  value={countryCode}
+                  onChange={(e) => setCountryCode(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                  style={{ minWidth: '140px' }}
+                >
+                  {COUNTRY_CODES.map((country) => (
+                    <option key={country.code} value={country.code}>
+                      {country.flag} {country.code}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Phone Number Input */}
+                <input
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="612345678"
+                />
+              </div>
               <p className="text-xs text-gray-500 mt-1">
                 Les employeurs pourront vous contacter rapidement via WhatsApp
               </p>

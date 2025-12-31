@@ -108,7 +108,6 @@ CREATE TABLE profiles (
 
     -- Constraints
     CONSTRAINT profiles_user_type_unique UNIQUE(user_id, profile_type),
-    CONSTRAINT whatsapp_format CHECK (whatsapp_number IS NULL OR whatsapp_number ~ '^\+33[0-9]{9}$'),
     CONSTRAINT rating_range CHECK (rating_avg >= 0 AND rating_avg <= 5),
     CONSTRAINT experience_positive CHECK (experience_years >= 0)
 );
