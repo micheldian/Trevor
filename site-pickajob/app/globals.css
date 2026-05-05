@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #ffffff;
+  --fg: #14532d;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  color: #1f2937;
+  background: var(--bg);
+  font-feature-settings: 'ss01', 'cv11';
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  .container-content {
+    @apply mx-auto w-full max-w-content px-4 sm:px-6 lg:px-8;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+  .btn-primary {
+    @apply btn bg-brand-600 text-white hover:bg-brand-700 focus:ring-brand-500;
+  }
+  .btn-secondary {
+    @apply btn bg-white text-brand-700 ring-1 ring-inset ring-brand-200 hover:bg-brand-50 focus:ring-brand-500;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-brand-700 hover:bg-brand-50 focus:ring-brand-500;
+  }
+  .btn-whatsapp {
+    @apply btn bg-[#25D366] text-white hover:bg-[#1ea851] focus:ring-[#25D366];
+  }
+
+  .prose-pickajob h2 {
+    @apply mt-10 text-2xl font-bold text-brand-900 sm:text-3xl;
+  }
+  .prose-pickajob h3 {
+    @apply mt-6 text-xl font-semibold text-brand-800;
+  }
+  .prose-pickajob p {
+    @apply mt-4 text-base leading-relaxed text-gray-700 sm:text-lg;
+  }
+  .prose-pickajob ul {
+    @apply mt-4 space-y-2 pl-5 text-base leading-relaxed text-gray-700 sm:text-lg;
+  }
+  .prose-pickajob li {
+    @apply list-disc;
+  }
+  .prose-pickajob a {
+    @apply font-semibold text-brand-700 underline decoration-brand-300 underline-offset-2 hover:text-brand-800;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand-700 ring-1 ring-inset ring-brand-200;
+  }
+}
